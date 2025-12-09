@@ -11,12 +11,13 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/honganh1206/tinker/message"
+	"github.com/honganh1206/tinker/server/mocks"
 	"github.com/honganh1206/tinker/tools"
 )
 
 // Test helpers for subagent
-func createTestSubagent() (*Subagent, *MockLLMClient) {
-	mockLLM := &MockLLMClient{}
+func createTestSubagent() (*Subagent, *mocks.MockLLMClient) {
+	mockLLM := &mocks.MockLLMClient{}
 	toolBox := &tools.ToolBox{
 		Tools: []*tools.ToolDefinition{
 			{
@@ -42,7 +43,7 @@ func createTestSubagent() (*Subagent, *MockLLMClient) {
 
 // Tests
 func TestNewSubagent_Success(t *testing.T) {
-	mockLLM := &MockLLMClient{}
+	mockLLM := &mocks.MockLLMClient{}
 	toolBox := &tools.ToolBox{
 		Tools: []*tools.ToolDefinition{
 			{
@@ -70,7 +71,7 @@ func TestNewSubagent_Success(t *testing.T) {
 }
 
 func TestNewSubagent_ToNativeToolsError(t *testing.T) {
-	mockLLM := &MockLLMClient{}
+	mockLLM := &mocks.MockLLMClient{}
 	toolBox := &tools.ToolBox{
 		Tools: []*tools.ToolDefinition{
 			{
@@ -313,7 +314,7 @@ func TestSubagent_executeTool_ToolNotFound(t *testing.T) {
 }
 
 func TestSubagent_executeTool_ToolError(t *testing.T) {
-	mockLLM := &MockLLMClient{}
+	mockLLM := &mocks.MockLLMClient{}
 	toolBox := &tools.ToolBox{
 		Tools: []*tools.ToolDefinition{
 			{
@@ -388,7 +389,7 @@ func TestSubagent_Run_SystemPromptConcatenation(t *testing.T) {
 }
 
 func TestSubagent_Run_MultipleToolCalls(t *testing.T) {
-	mockLLM := &MockLLMClient{}
+	mockLLM := &mocks.MockLLMClient{}
 	toolBox := &tools.ToolBox{
 		Tools: []*tools.ToolDefinition{
 			{
@@ -462,7 +463,7 @@ func TestSubagent_Run_MultipleToolCalls(t *testing.T) {
 }
 
 func TestSubagent_Run_StreamingMode(t *testing.T) {
-	mockLLM := &MockLLMClient{}
+	mockLLM := &mocks.MockLLMClient{}
 	toolBox := &tools.ToolBox{
 		Tools: []*tools.ToolDefinition{},
 	}

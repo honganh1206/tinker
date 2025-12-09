@@ -14,164 +14,15 @@ import (
 	"github.com/honganh1206/tinker/message"
 	"github.com/honganh1206/tinker/server"
 	"github.com/honganh1206/tinker/server/data"
+	"github.com/honganh1206/tinker/server/mocks"
 	"github.com/honganh1206/tinker/tools"
 	"github.com/honganh1206/tinker/ui"
 )
 
-// Mock implementations
-type MockLLMClient struct {
-	mock.Mock
-}
-
-func (m *MockLLMClient) RunInference(ctx context.Context, onDelta func(string), streaming bool) (*message.Message, error) {
-	args := m.Called(ctx, onDelta, streaming)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*message.Message), args.Error(1)
-}
-
-func (m *MockLLMClient) SummarizeHistory(history []*message.Message, threshold int) []*message.Message {
-	args := m.Called(history, threshold)
-	return args.Get(0).([]*message.Message)
-}
-
-func (m *MockLLMClient) TruncateMessage(msg *message.Message, threshold int) *message.Message {
-	args := m.Called(msg, threshold)
-	return args.Get(0).(*message.Message)
-}
-
-func (m *MockLLMClient) ProviderName() string {
-	args := m.Called()
-	return args.String(0)
-}
-
-func (m *MockLLMClient) ToNativeHistory(history []*message.Message) error {
-	args := m.Called(history)
-	return args.Error(0)
-}
-
-func (m *MockLLMClient) ToNativeMessage(msg *message.Message) error {
-	args := m.Called(msg)
-	return args.Error(0)
-}
-
-func (m *MockLLMClient) ToNativeTools(tools []*tools.ToolDefinition) error {
-	args := m.Called(tools)
-	return args.Error(0)
-}
-
-func (m *MockLLMClient) CountTokens(ctx context.Context) (int, error) {
-	args := m.Called(ctx)
-	return args.Int(0), args.Error(1)
-}
-
-func (m *MockLLMClient) ModelName() string {
-	args := m.Called()
-	return args.String(0)
-}
-
-type MockAPIClient struct {
-	mock.Mock
-}
-
-func (m *MockAPIClient) SaveConversation(conv *data.Conversation) error {
-	args := m.Called(conv)
-	return args.Error(0)
-}
-
-func (m *MockAPIClient) UpdateTokenCount(conversationID string, tokenCount int) error {
-	args := m.Called(conversationID, tokenCount)
-	return args.Error(0)
-}
-
-func (m *MockAPIClient) GetPlan(id string) (*data.Plan, error) {
-	args := m.Called(id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*data.Plan), args.Error(1)
-}
-
-func (m *MockAPIClient) CreatePlan(conversationID string) (*data.Plan, error) {
-	args := m.Called(conversationID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*data.Plan), args.Error(1)
-}
-
-func (m *MockAPIClient) SavePlan(p *data.Plan) error {
-	args := m.Called(p)
-	return args.Error(0)
-}
-
-func (m *MockAPIClient) CreateConversation() (*data.Conversation, error) {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*data.Conversation), args.Error(1)
-}
-
-func (m *MockAPIClient) ListConversations() ([]data.ConversationMetadata, error) {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]data.ConversationMetadata), args.Error(1)
-}
-
-func (m *MockAPIClient) GetConversation(id string) (*data.Conversation, error) {
-	args := m.Called(id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*data.Conversation), args.Error(1)
-}
-
-func (m *MockAPIClient) GetLatestConversationID() (string, error) {
-	args := m.Called()
-	return args.String(0), args.Error(1)
-}
-
-func (m *MockAPIClient) ListPlans() ([]data.PlanInfo, error) {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]data.PlanInfo), args.Error(1)
-}
-
-func (m *MockAPIClient) DeletePlan(id string) error {
-	args := m.Called(id)
-	return args.Error(0)
-}
-
-func (m *MockAPIClient) DeletePlans(ids []string) (map[string]error, error) {
-	args := m.Called(ids)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(map[string]error), args.Error(1)
-}
-
-type MockSubagent struct {
-	mock.Mock
-}
-
-func (m *MockSubagent) Run(ctx context.Context, toolDescription, query string) (*message.Message, error) {
-	args := m.Called(ctx, toolDescription, query)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*message.Message), args.Error(1)
-}
-
 // Test helpers
-func createTestAgent() (*Agent, *MockLLMClient, *MockAPIClient) {
-	mockLLM := &MockLLMClient{}
-	mockAPI := &MockAPIClient{}
+func createTestAgent() (*Agent, *mocks.MockLLMClient, *mocks.MockAPIClient) {
+	mockLLM := &mocks.MockLLMClient{}
+	mockAPI := &mocks.MockAPIClient{}
 
 	conv, _ := data.NewConversation()
 	toolBox := &tools.ToolBox{
@@ -228,7 +79,7 @@ func TestNew(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockLLM := &MockLLMClient{}
+			mockLLM := &mocks.MockLLMClient{}
 			conv, _ := data.NewConversation()
 			toolBox := &tools.ToolBox{Tools: []*tools.ToolDefinition{}}
 
@@ -424,7 +275,7 @@ func TestAgent_runSubagent_Success(t *testing.T) {
 	agent, _, _ := createTestAgent()
 
 	// Create a real subagent with mocked LLM
-	subLLM := &MockLLMClient{}
+	subLLM := &mocks.MockLLMClient{}
 	subToolBox := &tools.ToolBox{Tools: []*tools.ToolDefinition{}}
 	subLLM.On("ToNativeTools", subToolBox.Tools).Return(nil)
 	realSubagent := NewSubagent(&Config{
@@ -469,7 +320,7 @@ func TestAgent_runSubagent_InvalidJSON(t *testing.T) {
 func TestAgent_runSubagent_SubagentError(t *testing.T) {
 	agent, _, _ := createTestAgent()
 
-	subLLM := &MockLLMClient{}
+	subLLM := &mocks.MockLLMClient{}
 	subToolBox := &tools.ToolBox{Tools: []*tools.ToolDefinition{}}
 	subLLM.On("ToNativeTools", subToolBox.Tools).Return(nil)
 	subagent := NewSubagent(&Config{
