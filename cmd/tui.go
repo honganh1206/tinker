@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -45,8 +46,8 @@ func tui(ctx context.Context, agent *agent.Agent, ctl *ui.Controller) error {
 	relPath := displayRelativePath()
 
 	questionInput := tview.NewTextArea()
-	model := fmt.Sprintf("[yellow] Model: %s ", agent.LLM.ModelName())
-	questionInput.SetTitle(model).
+	// model := fmt.Sprintf("[yellow] Model: %s ", agent.LLM.ModelName())
+	questionInput.SetTitle("").
 		SetTitleAlign(tview.AlignLeft).
 		SetBorder(true).
 		SetDrawFunc(renderRelativePath(relPath))
@@ -82,7 +83,7 @@ func tui(ctx context.Context, agent *agent.Agent, ctl *ui.Controller) error {
 	})
 
 	// TODO: This should be in a separate function
-	renderPlan := func(s *ui.State) {
+	render := func(s *ui.State) {
 		inputFlex.Clear()
 		plan := s.Plan
 		if plan == nil || len(plan.Steps) == 0 {
@@ -97,16 +98,17 @@ func tui(ctx context.Context, agent *agent.Agent, ctl *ui.Controller) error {
 			newHeight := max(5, len(plan.Steps)+2)
 			mainLayout.ResizeItem(inputFlex, newHeight, 0)
 		}
+		questionInput.SetTitle(strconv.Itoa(s.TokenCount))
 	}
 
-	initialState := &ui.State{Plan: agent.Plan}
-	renderPlan(initialState)
+	initialState := &ui.State{Plan: agent.Plan, TokenCount: agent.TokenCount}
+	render(initialState)
 
 	go func() {
 		updateCh := ctl.Subscribe()
 
 		for s := range updateCh {
-			renderPlan(s)
+			render(s)
 		}
 	}()
 

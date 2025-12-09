@@ -20,13 +20,14 @@ import (
 type PlanUpdateCallback func(*data.Plan)
 
 type Agent struct {
-	LLM     inference.LLMClient
-	ToolBox *tools.ToolBox
-	Conv    *data.Conversation
-	Plan    *data.Plan
-	Client  *api.Client
-	ctl     *ui.Controller
-	MCP     mcp.Config
+	LLM        inference.LLMClient
+	ToolBox    *tools.ToolBox
+	Conv       *data.Conversation
+	Plan       *data.Plan
+	TokenCount int
+	Client     *api.Client
+	ctl        *ui.Controller
+	MCP        mcp.Config
 	// TODO: Default to be streaming. Be a dictator :)
 	streaming bool
 	// In the future it could be a map of agents, keys are task ID
@@ -46,13 +47,14 @@ type Config struct {
 
 func New(config *Config) *Agent {
 	agent := &Agent{
-		LLM:       config.LLM,
-		ToolBox:   config.ToolBox,
-		Conv:      config.Conversation,
-		Plan:      config.Plan,
-		Client:    config.Client,
-		streaming: config.Streaming,
-		ctl:       config.Controller,
+		LLM:        config.LLM,
+		ToolBox:    config.ToolBox,
+		Conv:       config.Conversation,
+		Plan:       config.Plan,
+		TokenCount: 0,
+		Client:     config.Client,
+		streaming:  config.Streaming,
+		ctl:        config.Controller,
 	}
 
 	agent.MCP.ServerConfigs = config.MCPConfigs
@@ -118,6 +120,14 @@ func (a *Agent) Run(ctx context.Context, userInput string, onDelta func(string))
 			// and we are safe to return the text response from the agent and wait for the next input.
 			readUserInput = true
 			a.saveConversation()
+			count, err := a.LLM.CountTokens(ctx)
+			if err != nil {
+				return err
+			}
+			a.TokenCount = count
+			go func() {
+				a.ctl.Publish(&ui.State{TokenCount: count})
+			}()
 			break
 		}
 

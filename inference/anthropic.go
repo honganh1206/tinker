@@ -53,7 +53,7 @@ func (c *AnthropicClient) TruncateMessage(msg *message.Message, threshold int) *
 	return c.BaseLLMClient.BaseTruncateMessage(msg, threshold)
 }
 
-func getAnthropicModel(model ModelVersion) anthropic.Model {
+func getModel(model ModelVersion) anthropic.Model {
 	switch model {
 	case Claude45Opus:
 		return anthropic.ModelClaudeOpus4_5_20251101
@@ -84,7 +84,7 @@ func (c *AnthropicClient) RunInference(ctx context.Context, onDelta func(string)
 	}
 
 	params := anthropic.MessageNewParams{
-		Model:     getAnthropicModel(c.model),
+		Model:     getModel(c.model),
 		MaxTokens: c.maxTokens,
 		Messages:  c.history,
 		Tools:     c.tools,
@@ -192,6 +192,29 @@ func (c *AnthropicClient) runInferenceSnapshot(ctx context.Context, params anthr
 	return msg, nil
 }
 
+func (c *AnthropicClient) CountTokens(ctx context.Context) (int, error) {
+	// Assuming c.history is not empty here
+	count, err := c.client.Messages.CountTokens(ctx, anthropic.MessageCountTokensParams{
+		Messages: c.history,
+		Model:    getModel(c.model),
+		System: anthropic.MessageCountTokensParamsSystemUnion{
+			OfTextBlockArray: []anthropic.TextBlockParam{
+				{Text: c.systemPrompt, CacheControl: c.cache},
+			},
+		},
+		// We need ToolParam type but c.tools are of ToolUnionParam
+		// Tools: []anthropic.MessageCountTokensToolUnionParam{{
+		// OfTool:
+		// }}
+	})
+	if err != nil {
+		// TODO: Custom error message
+		return 0, err
+	}
+
+	return int(count.InputTokens), nil
+}
+
 func (c *AnthropicClient) ToNativeHistory(history []*message.Message) error {
 	if len(history) == 0 {
 		return errors.New("anthropic: empty conversation history")
@@ -213,7 +236,7 @@ func (c *AnthropicClient) ToNativeMessage(msg *message.Message) error {
 	}
 
 	var nativeMsg anthropic.MessageParam
-	blocks := toAnthropicBlocks(msg.Content)
+	blocks := toBlocks(msg.Content)
 	switch msg.Role {
 	case message.UserRole:
 		nativeMsg = anthropic.NewUserMessage(blocks...)
@@ -246,7 +269,7 @@ func (c *AnthropicClient) ToNativeTools(tools []*tools.ToolDefinition) error {
 	return nil
 }
 
-func toAnthropicBlocks(blocks []message.ContentBlock) []anthropic.ContentBlockParamUnion {
+func toBlocks(blocks []message.ContentBlock) []anthropic.ContentBlockParamUnion {
 	// Unified interface for different request types i.e. text, image, document, thinking
 	anthropicBlocks := make([]anthropic.ContentBlockParamUnion, 0, len(blocks))
 
