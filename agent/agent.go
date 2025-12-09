@@ -122,9 +122,15 @@ func (a *Agent) Run(ctx context.Context, userInput string, onDelta func(string))
 				return err
 			}
 			a.Conv.TokenCount = count
-			if err := a.saveConversation(); err != nil {
+
+			if err := a.Client.SaveConversation(a.Conv); err != nil {
 				return err
 			}
+
+			if err := a.Client.UpdateTokenCount(a.Conv.ID, count); err != nil {
+				return err
+			}
+
 			go func() {
 				a.ctl.Publish(&ui.State{TokenCount: count})
 			}()
@@ -379,17 +385,6 @@ func (a *Agent) runSubagent(id, name, toolDescription string, rawInput json.RawM
 	return result, nil
 }
 
-func (a *Agent) saveConversation() error {
-	if len(a.Conv.Messages) > 0 {
-		err := a.Client.SaveConversation(a.Conv)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (a *Agent) streamResponse(ctx context.Context, onDelta func(string)) (*message.Message, error) {
 	var streamErr error
 	var msg *message.Message
@@ -410,3 +405,4 @@ func (a *Agent) streamResponse(ctx context.Context, onDelta func(string)) (*mess
 
 	return msg, nil
 }
+

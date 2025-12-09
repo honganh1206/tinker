@@ -77,12 +77,11 @@ func (cm ConversationModel) Save(c *Conversation) error {
 	// TODO: Do I need to init a context for timeouts/graceful cancellation/tracing and logging?
 
 	query := `
-	INSERT INTO conversations (id, created_at, token_count)
-	VALUES(?, ?, ?)
-	ON CONFLICT(id) DO UPDATE SET token_count = excluded.token_count
+	INSERT OR IGNORE INTO conversations (id, created_at)
+	VALUES(?, ?)
 	`
 
-	if _, err = tx.Exec(query, c.ID, c.CreatedAt, c.TokenCount); err != nil {
+	if _, err = tx.Exec(query, c.ID, c.CreatedAt); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -261,4 +260,23 @@ func (cm ConversationModel) Get(id string) (*Conversation, error) {
 	}
 
 	return conv, nil
+}
+
+func (cm ConversationModel) UpdateTokenCount(id string, tokenCount int) error {
+	query := `UPDATE conversations SET token_count = ? WHERE id = ?`
+	result, err := cm.DB.Exec(query, tokenCount, id)
+	if err != nil {
+		return fmt.Errorf("failed to update token count: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrConversationNotFound
+	}
+
+	return nil
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/honganh1206/tinker/server/api"
 	"github.com/honganh1206/tinker/server/data"
 	"github.com/honganh1206/tinker/tools"
+	"github.com/honganh1206/tinker/ui"
 )
 
 // Mock implementations
@@ -58,6 +59,16 @@ func (m *MockLLMClient) ToNativeMessage(msg *message.Message) error {
 func (m *MockLLMClient) ToNativeTools(tools []*tools.ToolDefinition) error {
 	args := m.Called(tools)
 	return args.Error(0)
+}
+
+func (m *MockLLMClient) CountTokens(ctx context.Context) (int, error) {
+	args := m.Called(ctx)
+	return args.Int(0), args.Error(1)
+}
+
+func (m *MockLLMClient) ModelName() string {
+	args := m.Called()
+	return args.String(0)
 }
 
 // Create interfaces for dependency injection
@@ -119,6 +130,7 @@ func createTestAgent() (*Agent, *MockLLMClient) {
 
 	// Create a real api.Client for testing
 	realClient := api.NewClient("")
+	ctl := ui.NewController()
 	agent := New(&Config{
 		LLM:          mockLLM,
 		Conversation: conv,
@@ -126,6 +138,7 @@ func createTestAgent() (*Agent, *MockLLMClient) {
 		Client:       realClient,
 		MCPConfigs:   []mcp.ServerConfig{},
 		Streaming:    false,
+		Controller:   ctl,
 	})
 	return agent, mockLLM
 }
@@ -204,6 +217,7 @@ func TestAgent_Run_SimpleTextResponse(t *testing.T) {
 	mockLLM.On("ToNativeMessage", mock.Anything).Return(nil)
 	mockLLM.On("RunInference", mock.MatchedBy(func(ctx context.Context) bool { return true }), mock.Anything, false).Return(
 		createTestMessage(message.AssistantRole, "Hello, how can I help?"), nil)
+	mockLLM.On("CountTokens", mock.MatchedBy(func(ctx context.Context) bool { return true })).Return(0, nil).Once()
 
 	ctx := context.Background()
 	userInput := "Hello"
@@ -250,6 +264,7 @@ func TestAgent_Run_WithToolUse(t *testing.T) {
 	mockLLM.On("ToNativeMessage", mock.Anything).Return(nil)
 	mockLLM.On("RunInference", mock.MatchedBy(func(ctx context.Context) bool { return true }), mock.Anything, false).Return(toolUseMsg, nil).Once()
 	mockLLM.On("RunInference", mock.MatchedBy(func(ctx context.Context) bool { return true }), mock.Anything, false).Return(finalMsg, nil).Once()
+	mockLLM.On("CountTokens", mock.MatchedBy(func(ctx context.Context) bool { return true })).Return(0, nil).Once()
 
 	ctx := context.Background()
 	userInput := "Use the test tool"
@@ -416,28 +431,7 @@ func TestAgent_runSubagent_SubagentError(t *testing.T) {
 	subLLM.AssertExpectations(t)
 }
 
-func TestAgent_saveConversation_Success(t *testing.T) {
-	agent, _ := createTestAgent()
 
-	// Add a message to conversation
-	agent.Conv.Append(createTestMessage(message.UserRole, "Test message"))
-
-	// Note: This test uses a real HTTP client, so it may fail if server is not running
-	// In a proper test setup, we would mock the HTTP client
-	err := agent.saveConversation()
-
-	// The test might fail due to network issues, but we're testing the function doesn't panic
-	_ = err
-}
-
-func TestAgent_saveConversation_EmptyConversation(t *testing.T) {
-	agent, _ := createTestAgent()
-
-	// Don't add any messages to conversation
-	err := agent.saveConversation()
-
-	assert.NoError(t, err)
-}
 
 func TestAgent_streamResponse_Success(t *testing.T) {
 	agent, mockLLM := createTestAgent()

@@ -83,6 +83,20 @@ func (c *Client) SaveConversation(conv *data.Conversation) error {
 	return nil
 }
 
+func (c *Client) UpdateTokenCount(conversationID string, tokenCount int) error {
+	path := fmt.Sprintf("/conversations/%s", conversationID)
+	body := map[string]int{"token_count": tokenCount}
+	if err := c.doRequest(http.MethodPatch, path, body, nil); err != nil {
+		var httpErr *HTTPError
+		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusNotFound {
+			return data.ErrConversationNotFound
+		}
+		return err
+	}
+
+	return nil
+}
+
 // Hacky API for quick resume
 func (c *Client) GetLatestConversationID() (string, error) {
 	conversations, err := c.ListConversations()

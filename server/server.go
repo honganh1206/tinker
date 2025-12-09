@@ -76,6 +76,12 @@ func (s *server) conversationHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	case http.MethodPut:
 		s.saveConversation(w, r, convID)
+	case http.MethodPatch:
+		if hasID {
+			s.patchConversation(w, r, convID)
+		} else {
+			http.Error(w, "Conversation ID required", http.StatusBadRequest)
+		}
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -178,6 +184,42 @@ func (s *server) saveConversation(w http.ResponseWriter, r *http.Request, conver
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "conversation saved"})
+}
+
+func (s *server) patchConversation(w http.ResponseWriter, r *http.Request, id string) {
+	var req struct {
+		TokenCount *int `json:"token_count"`
+	}
+
+	if err := decodeJSON(r, &req); err != nil {
+		handleError(w, &HTTPError{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request format",
+			Err:     err,
+		})
+		return
+	}
+
+	if req.TokenCount != nil {
+		if err := s.models.Conversations.UpdateTokenCount(id, *req.TokenCount); err != nil {
+			if err == data.ErrConversationNotFound {
+				handleError(w, &HTTPError{
+					Code:    http.StatusNotFound,
+					Message: "Conversation not found",
+					Err:     err,
+				})
+				return
+			}
+			handleError(w, &HTTPError{
+				Code:    http.StatusInternalServerError,
+				Message: "Failed to update token count",
+				Err:     err,
+			})
+			return
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "conversation updated"})
 }
 
 func (s *server) planHandler(w http.ResponseWriter, r *http.Request) {
