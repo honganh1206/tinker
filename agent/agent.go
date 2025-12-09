@@ -17,8 +17,6 @@ import (
 	"github.com/honganh1206/tinker/ui"
 )
 
-type PlanUpdateCallback func(*data.Plan)
-
 type Agent struct {
 	LLM     inference.LLMClient
 	ToolBox *tools.ToolBox

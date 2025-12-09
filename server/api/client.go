@@ -28,7 +28,7 @@ type Client struct {
 
 func NewClient(baseURL string) *Client {
 	if baseURL == "" {
-		baseURL = "http://localhost:11436"
+		baseURL = "http://localhost:11435"
 	}
 	return &Client{
 		baseURL:    baseURL,
@@ -238,3 +238,4 @@ func (c *Client) doRequest(method, path string, body, result any) error {
 
 	return nil
 }
+
