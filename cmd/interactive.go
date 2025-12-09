@@ -8,14 +8,14 @@ import (
 	"github.com/honganh1206/tinker/agent"
 	"github.com/honganh1206/tinker/inference"
 	"github.com/honganh1206/tinker/mcp"
-	"github.com/honganh1206/tinker/server/api"
+	"github.com/honganh1206/tinker/server"
 	"github.com/honganh1206/tinker/server/data"
 	"github.com/honganh1206/tinker/tools"
 	"github.com/honganh1206/tinker/ui"
 )
 
 // TODO: All these parameters should go into a struct
-func interactive(ctx context.Context, convID string, llmClient, llmClientSub inference.BaseLLMClient, apiClient *api.Client, mcpConfigs []mcp.ServerConfig, useTUI bool) error {
+func interactive(ctx context.Context, convID string, llmClient, llmClientSub inference.BaseLLMClient, client server.APIClient, mcpConfigs []mcp.ServerConfig, useTUI bool) error {
 	llm, err := inference.Init(ctx, llmClient)
 	if err != nil {
 		log.Fatalf("Failed to initialize model: %s", err.Error())
@@ -47,17 +47,17 @@ func interactive(ctx context.Context, convID string, llmClient, llmClientSub inf
 	var plan *data.Plan
 
 	if convID != "" {
-		conv, err = apiClient.GetConversation(convID)
+		conv, err = client.GetConversation(convID)
 		if err != nil {
 			return err
 		}
-		plan, err = apiClient.GetPlan(convID)
+		plan, err = client.GetPlan(convID)
 		// TODO: There could be a case where there is no plan for a conversation
 		// what should we do then?
 		if err != nil {
 		}
 	} else {
-		conv, err = apiClient.CreateConversation()
+		conv, err = client.CreateConversation()
 		if err != nil {
 			return err
 		}
@@ -74,7 +74,7 @@ func interactive(ctx context.Context, convID string, llmClient, llmClientSub inf
 		LLM:          llm,
 		Conversation: conv,
 		ToolBox:      toolBox,
-		Client:       apiClient,
+		Client:       client,
 		MCPConfigs:   mcpConfigs,
 		Plan:         plan,
 		Streaming:    true,

@@ -27,11 +27,9 @@ func Serve(ln net.Listener) error {
 		log.Fatal("Failed to get home directory:", err)
 	}
 
-	// TODO: This should have their own function
-	// to be used directly by the CLI agent
 	dsn := filepath.Join(homeDir, ".tinker", "tinker.db")
 
-	db, err := db.OpenDB(dsn, data.ConversationSchema, data.PlanSchema)
+	db, err := db.Open(dsn, data.ConversationSchema, data.PlanSchema)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %s", err.Error())
 	}
@@ -50,11 +48,8 @@ func Serve(ln net.Listener) error {
 		w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	// Register conversation handlers
 	mux.HandleFunc("/conversations", srv.conversationHandler)
 	mux.HandleFunc("/conversations/", srv.conversationHandler)
-
-	// Register plan handlers
 	mux.HandleFunc("/plans", srv.planHandler)
 	mux.HandleFunc("/plans/", srv.planHandler)
 
@@ -77,11 +72,7 @@ func (s *server) conversationHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPut:
 		s.saveConversation(w, r, convID)
 	case http.MethodPatch:
-		if hasID {
-			s.patchConversation(w, r, convID)
-		} else {
-			http.Error(w, "Conversation ID required", http.StatusBadRequest)
-		}
+		s.patchConversation(w, r, convID)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}

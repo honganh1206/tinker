@@ -255,8 +255,11 @@ func (c *GeminiClient) ToNativeHistory(history []*message.Message) error {
 }
 
 func (c *GeminiClient) CountTokens(ctx context.Context) (int, error) {
-	// Temp implementation
-	return 0, nil
+	count, err := c.client.Models.CountTokens(ctx, c.Model, c.contents, nil)
+	if err != nil {
+		return 0, err
+	}
+	return int(count.TotalTokens), nil
 }
 
 func (c *GeminiClient) ToNativeMessage(msg *message.Message) error {

@@ -36,8 +36,9 @@ func NewConversation() (*Conversation, error) {
 	}
 
 	return &Conversation{
-		ID:        id.String(),
-		Messages:  make([]*message.Message, 0),
+		ID:       id.String(),
+		Messages: make([]*message.Message, 0),
+		// TokenCount: 0,
 		CreatedAt: time.Now(),
 	}, nil
 }

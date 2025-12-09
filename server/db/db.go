@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func OpenDB(dsn string, schemas ...string) (*sql.DB, error) {
+func Open(dsn string, schemas ...string) (*sql.DB, error) {
 	dbDir := filepath.Dir(dsn)
 	if _, err := os.Stat(dbDir); os.IsNotExist(err) {
 		err = os.MkdirAll(dbDir, 0o755)

@@ -11,7 +11,7 @@ import (
 	"github.com/honganh1206/tinker/mcp"
 	"github.com/honganh1206/tinker/message"
 	"github.com/honganh1206/tinker/schema"
-	"github.com/honganh1206/tinker/server/api"
+	"github.com/honganh1206/tinker/server"
 	"github.com/honganh1206/tinker/server/data"
 	"github.com/honganh1206/tinker/tools"
 	"github.com/honganh1206/tinker/ui"
@@ -22,7 +22,7 @@ type Agent struct {
 	ToolBox *tools.ToolBox
 	Conv    *data.Conversation
 	Plan    *data.Plan
-	Client  *api.Client
+	client  server.APIClient
 	ctl     *ui.Controller
 	MCP     mcp.Config
 	// TODO: Default to be streaming. Be a dictator :)
@@ -35,7 +35,7 @@ type Config struct {
 	LLM          inference.LLMClient
 	Conversation *data.Conversation
 	ToolBox      *tools.ToolBox
-	Client       *api.Client
+	Client       server.APIClient
 	MCPConfigs   []mcp.ServerConfig
 	Plan         *data.Plan
 	Streaming    bool
@@ -48,7 +48,7 @@ func New(config *Config) *Agent {
 		ToolBox:   config.ToolBox,
 		Conv:      config.Conversation,
 		Plan:      config.Plan,
-		Client:    config.Client,
+		client:    config.Client,
 		streaming: config.Streaming,
 		ctl:       config.Controller,
 	}
@@ -121,11 +121,11 @@ func (a *Agent) Run(ctx context.Context, userInput string, onDelta func(string))
 			}
 			a.Conv.TokenCount = count
 
-			if err := a.Client.SaveConversation(a.Conv); err != nil {
+			if err := a.client.SaveConversation(a.Conv); err != nil {
 				return err
 			}
 
-			if err := a.Client.UpdateTokenCount(a.Conv.ID, count); err != nil {
+			if err := a.client.UpdateTokenCount(a.Conv.ID, count); err != nil {
 				return err
 			}
 
@@ -327,10 +327,10 @@ func (a *Agent) executePlanTool(toolDef *tools.ToolDefinition, toolInput tools.T
 	var p *data.Plan
 	var err error
 
-	p, err = a.Client.GetPlan(a.Conv.ID)
+	p, err = a.client.GetPlan(a.Conv.ID)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "not found") {
-			p, err = a.Client.CreatePlan(a.Conv.ID)
+			p, err = a.client.CreatePlan(a.Conv.ID)
 			if err != nil {
 				return "", fmt.Errorf("plan_write: failed to create new plan for conversation with ID '%s' for adding steps: %w", a.Conv.ID, err)
 			}
@@ -346,7 +346,7 @@ func (a *Agent) executePlanTool(toolDef *tools.ToolDefinition, toolInput tools.T
 
 	response, err := toolDef.Function(toolInput)
 
-	if err = a.Client.SavePlan(p); err != nil {
+	if err = a.client.SavePlan(p); err != nil {
 		return "", fmt.Errorf("plan_write: failed to save plan '%s' after setting status: %w", a.Conv.ID, err)
 	}
 
@@ -403,4 +403,3 @@ func (a *Agent) streamResponse(ctx context.Context, onDelta func(string)) (*mess
 
 	return msg, nil
 }
-
