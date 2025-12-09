@@ -96,7 +96,7 @@ func ChatHandler(cmd *cobra.Command, args []string) error {
 }
 
 func RunServer(cmd *cobra.Command, args []string) error {
-	ln, err := net.Listen("tcp", ":11435")
+	ln, err := net.Listen("tcp", ":11436")
 	if err != nil {
 		return err
 	}

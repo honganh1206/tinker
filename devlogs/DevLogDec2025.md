@@ -12,3 +12,5 @@ For the display, the token counter should be displayed as `<percentage> <count>/
 Another problem: After we send a message to the provider API in their native format, then we convert the message back to our type, then are we going to convert the message it to native type again to send to the token-counting APIs? That sounds inefficient.
 
 But I think it is necessary. I need to count the tokens from the text-typed message, as well as tokens from the tool uses.
+
+AND we need to store token count in `Conversation` struct!

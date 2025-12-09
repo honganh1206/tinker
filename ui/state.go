@@ -6,6 +6,7 @@ type State struct {
 	Plan *data.Plan
 	// TODO: Could be int64?
 	TokenCount int
+	ModelName  string
 	// TODO: Can we handle response delta here too?
 }
 

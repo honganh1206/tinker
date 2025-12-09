@@ -28,7 +28,7 @@ type Client struct {
 
 func NewClient(baseURL string) *Client {
 	if baseURL == "" {
-		baseURL = "http://localhost:11435"
+		baseURL = "http://localhost:11436"
 	}
 	return &Client{
 		baseURL:    baseURL,
@@ -83,6 +83,7 @@ func (c *Client) SaveConversation(conv *data.Conversation) error {
 	return nil
 }
 
+// Hacky API for quick resume
 func (c *Client) GetLatestConversationID() (string, error) {
 	conversations, err := c.ListConversations()
 	if err != nil {

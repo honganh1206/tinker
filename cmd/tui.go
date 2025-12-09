@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -44,13 +43,13 @@ func tui(ctx context.Context, agent *agent.Agent, ctl *ui.Controller) error {
 		displayConversationHistory(conversationView, agent.Conv)
 	}
 	relPath := displayRelativePath()
+	modelName := agent.LLM.ModelName()
 
 	questionInput := tview.NewTextArea()
-	// model := fmt.Sprintf("[yellow] Model: %s ", agent.LLM.ModelName())
-	questionInput.SetTitle("").
+	questionInput.SetTitle(formatTokenCount(agent.Conv.TokenCount)).
 		SetTitleAlign(tview.AlignLeft).
 		SetBorder(true).
-		SetDrawFunc(renderRelativePath(relPath))
+		SetDrawFunc(renderInputOverlays(relPath, modelName))
 	questionInput.SetFocusFunc(func() {
 		questionInput.SetBorderColor(tcell.ColorGreen)
 	})
@@ -98,10 +97,10 @@ func tui(ctx context.Context, agent *agent.Agent, ctl *ui.Controller) error {
 			newHeight := max(5, len(plan.Steps)+2)
 			mainLayout.ResizeItem(inputFlex, newHeight, 0)
 		}
-		questionInput.SetTitle(strconv.Itoa(s.TokenCount))
+		questionInput.SetTitle(formatTokenCount(s.TokenCount))
 	}
 
-	initialState := &ui.State{Plan: agent.Plan, TokenCount: agent.TokenCount}
+	initialState := &ui.State{Plan: agent.Plan, TokenCount: agent.Conv.TokenCount}
 	render(initialState)
 
 	go func() {
@@ -219,6 +218,14 @@ func displayConversationHistory(conversationView *tview.TextView, conv *data.Con
 	conversationView.ScrollToEnd()
 }
 
+const maxTokens = 168000
+
+func formatTokenCount(count int) string {
+	percentage := float64(count) / float64(maxTokens) * 100
+	countK := float64(count) / 1000
+	return fmt.Sprintf("%.0f%% (%.1fk/168k)", percentage, countK)
+}
+
 func getRandomSpinnerMessage() string {
 	messages := []string{
 		"Almost there...",
@@ -234,9 +241,9 @@ func getRandomSpinnerMessage() string {
 	return messages[r.Intn(len(messages))]
 }
 
-// renderRelativePath returns a custom draw function for the question input area
-// that overlays the relative path in the bottom-right corner of the input box
-func renderRelativePath(relPath string) func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
+// renderInputOverlays returns a custom draw function for the question input area
+// that overlays the relative path in the bottom-right corner and model name in the top-right corner
+func renderInputOverlays(relPath, modelName string) func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
 	return func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
 		pathText := fmt.Sprintf("[blue::]%s[-]", relPath)
 		pathWidth := len(relPath)
@@ -246,6 +253,15 @@ func renderRelativePath(relPath string) func(screen tcell.Screen, x, y, width, h
 
 		if rightX > x && bottomY >= y {
 			tview.Print(screen, pathText, rightX, bottomY, pathWidth, tview.AlignLeft, tcell.ColorDefault)
+		}
+
+		modelText := fmt.Sprintf("[yellow::]%s[-]", modelName)
+		modelWidth := len(modelName)
+		modelRightX := x + width - modelWidth - 2
+		topY := y
+
+		if modelRightX > x {
+			tview.Print(screen, modelText, modelRightX, topY, modelWidth, tview.AlignLeft, tcell.ColorDefault)
 		}
 
 		return x + 1, y + 1, width - 2, height - 2

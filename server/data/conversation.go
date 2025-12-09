@@ -19,9 +19,10 @@ var ErrConversationNotFound = errors.New("history: conversation not found")
 var ConversationSchema string
 
 type Conversation struct {
-	ID        string
-	Messages  []*message.Message
-	CreatedAt time.Time
+	ID         string             `json:"id"`
+	Messages   []*message.Message `json:"messages"`
+	TokenCount int                `json:"token_count"`
+	CreatedAt  time.Time          `json:"created_at"`
 }
 
 type ConversationModel struct {
@@ -76,11 +77,12 @@ func (cm ConversationModel) Save(c *Conversation) error {
 	// TODO: Do I need to init a context for timeouts/graceful cancellation/tracing and logging?
 
 	query := `
-	INSERT OR IGNORE INTO conversations (id, created_at)
-	VALUES(?, ?);
+	INSERT INTO conversations (id, created_at, token_count)
+	VALUES(?, ?, ?)
+	ON CONFLICT(id) DO UPDATE SET token_count = excluded.token_count
 	`
 
-	if _, err = tx.Exec(query, c.ID, c.CreatedAt); err != nil {
+	if _, err = tx.Exec(query, c.ID, c.CreatedAt, c.TokenCount); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -202,11 +204,11 @@ func (cm ConversationModel) LatestID() (string, error) {
 
 func (cm ConversationModel) Get(id string) (*Conversation, error) {
 	query := `
-		SELECT created_at FROM conversations WHERE id = ?
+		SELECT created_at, COALESCE(token_count, 0) FROM conversations WHERE id = ?
 	`
 	conv := &Conversation{ID: id, Messages: make([]*message.Message, 0)}
 
-	err := cm.DB.QueryRow(query, id).Scan(&conv.CreatedAt)
+	err := cm.DB.QueryRow(query, id).Scan(&conv.CreatedAt, &conv.TokenCount)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrConversationNotFound
