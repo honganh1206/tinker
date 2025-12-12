@@ -1,12 +1,46 @@
 package data
 
 import (
+	"database/sql"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/honganh1206/tinker/message"
+	"github.com/honganh1206/tinker/server/db"
 	_ "github.com/mattn/go-sqlite3"
 )
+
+func createTestDB(t *testing.T) *sql.DB {
+	t.Helper()
+
+	tempDir, err := os.MkdirTemp("", "tinker_test_*")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+
+	t.Cleanup(func() {
+		os.RemoveAll(tempDir)
+	})
+
+	testDBPath := filepath.Join(tempDir, "test.db")
+
+	schemas := make([]string, 2)
+	schemas = append(schemas, ConversationSchema)
+	schemas = append(schemas, PlanSchema)
+
+	db, err := db.Open(testDBPath, schemas...)
+	if err != nil {
+		t.Fatalf("Failed to initialize test database: %v", err)
+	}
+
+	t.Cleanup(func() {
+		db.Close()
+	})
+
+	return db
+}
 
 func createTestModel(t *testing.T) *ConversationModel {
 	testDB := createTestDB(t)
@@ -527,3 +561,73 @@ func TestGet_EmptyConversation(t *testing.T) {
 	}
 }
 
+func TestUpdateTokenCount_Success(t *testing.T) {
+	cm := createTestModel(t)
+
+	conv, err := NewConversation()
+	if err != nil {
+		t.Fatalf("NewConversation() failed: %v", err)
+	}
+
+	if err := cm.Save(conv); err != nil {
+		t.Fatalf("Save() failed: %v", err)
+	}
+
+	// Update token count
+	err = cm.UpdateTokenCount(conv.ID, 12345)
+	if err != nil {
+		t.Fatalf("UpdateTokenCount() failed: %v", err)
+	}
+
+	// Verify token count was updated
+	loadedConv, err := cm.Get(conv.ID)
+	if err != nil {
+		t.Fatalf("Get() failed: %v", err)
+	}
+
+	if loadedConv.TokenCount != 12345 {
+		t.Errorf("Expected TokenCount 12345, got %d", loadedConv.TokenCount)
+	}
+}
+
+func TestUpdateTokenCount_NotFound(t *testing.T) {
+	cm := createTestModel(t)
+
+	err := cm.UpdateTokenCount("non-existent-id", 100)
+	if err != ErrConversationNotFound {
+		t.Errorf("Expected ErrConversationNotFound, got %v", err)
+	}
+}
+
+func TestUpdateTokenCount_MultipleUpdates(t *testing.T) {
+	cm := createTestModel(t)
+
+	conv, err := NewConversation()
+	if err != nil {
+		t.Fatalf("NewConversation() failed: %v", err)
+	}
+
+	if err := cm.Save(conv); err != nil {
+		t.Fatalf("Save() failed: %v", err)
+	}
+
+	// First update
+	if err := cm.UpdateTokenCount(conv.ID, 1000); err != nil {
+		t.Fatalf("First UpdateTokenCount() failed: %v", err)
+	}
+
+	// Second update
+	if err := cm.UpdateTokenCount(conv.ID, 5000); err != nil {
+		t.Fatalf("Second UpdateTokenCount() failed: %v", err)
+	}
+
+	// Verify final token count
+	loadedConv, err := cm.Get(conv.ID)
+	if err != nil {
+		t.Fatalf("Get() failed: %v", err)
+	}
+
+	if loadedConv.TokenCount != 5000 {
+		t.Errorf("Expected TokenCount 5000, got %d", loadedConv.TokenCount)
+	}
+}

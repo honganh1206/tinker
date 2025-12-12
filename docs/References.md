@@ -27,3 +27,4 @@
 - [ai-training (ollama integration)](https://github.com/ardanlabs/ai-training)
 - [opencode - really good agent built in Go and TypeScript](https://github.com/sst/opencode)
 - [ai-commit](https://github.com/renatogalera/ai-commit)
+- [claude-code-sdk-go](https://github.com/severity1/claude-code-sdk-go) - More like a Go SDK for Claude Code instead of Claude API, but worth the look

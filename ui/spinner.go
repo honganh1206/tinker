@@ -26,9 +26,7 @@ var (
 	}
 
 	SpinnerStar = []string{
-		"+",
-		"x",
-		"*",
+		"·", "✻", "✽", "✶", "✳", "✢",
 	}
 
 	SpinnerLines = []string{

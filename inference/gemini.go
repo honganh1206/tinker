@@ -254,12 +254,20 @@ func (c *GeminiClient) ToNativeHistory(history []*message.Message) error {
 	return nil
 }
 
+func (c *GeminiClient) CountTokens(ctx context.Context) (int, error) {
+	count, err := c.client.Models.CountTokens(ctx, c.Model, c.contents, nil)
+	if err != nil {
+		return 0, err
+	}
+	return int(count.TotalTokens), nil
+}
+
 func (c *GeminiClient) ToNativeMessage(msg *message.Message) error {
 	if msg == nil {
 		return errors.New("gemini: message is nil")
 	}
 
-	parts := toGeminiParts(msg.Content)
+	parts := toParts(msg.Content)
 	if len(parts) == 0 {
 		return errors.New("gemini: message has no content parts")
 	}
@@ -283,7 +291,7 @@ func (c *GeminiClient) ToNativeTools(tools []*tools.ToolDefinition) error {
 	}
 
 	for _, tool := range tools {
-		geminiToolFuncDec, err := toGeminiFunctionDeclaration(tool)
+		geminiToolFuncDec, err := toFunctionDeclaration(tool)
 		if err != nil {
 			return err
 		}
@@ -295,7 +303,7 @@ func (c *GeminiClient) ToNativeTools(tools []*tools.ToolDefinition) error {
 	return nil
 }
 
-func toGeminiParts(blocks []message.ContentBlock) []*genai.Part {
+func toParts(blocks []message.ContentBlock) []*genai.Part {
 	parts := make([]*genai.Part, 0, len(blocks))
 
 	for _, block := range blocks {
@@ -333,7 +341,7 @@ func toGeminiParts(blocks []message.ContentBlock) []*genai.Part {
 	return parts
 }
 
-func toGeminiFunctionDeclaration(tool *tools.ToolDefinition) (*genai.FunctionDeclaration, error) {
+func toFunctionDeclaration(tool *tools.ToolDefinition) (*genai.FunctionDeclaration, error) {
 	params, err := schema.ConvertToGeminiSchema(tool.InputSchema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert schema to Gemini format: %w", err)

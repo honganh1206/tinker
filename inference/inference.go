@@ -20,6 +20,8 @@ type LLMClient interface {
 	// Refer to https://github.com/madebywelch/anthropic-go/blob/main/pkg/anthropic/client/client.go for the design.
 	// The onDelta should be in agent.go, and we need to remove the streaming flag.
 	RunInference(ctx context.Context, onDelta func(string), streaming bool) (*message.Message, error)
+	// TODO: Custom return type for token count?
+	CountTokens(ctx context.Context) (int, error)
 	SummarizeHistory(history []*message.Message, threshold int) []*message.Message
 	// ApplySlidingWindow(history []*message.Message, windowSize int) []*message.Message
 	TruncateMessage(msg *message.Message, threshold int) *message.Message

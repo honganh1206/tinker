@@ -12,7 +12,6 @@ import (
 	"github.com/honganh1206/tinker/inference"
 	"github.com/honganh1206/tinker/mcp"
 	"github.com/honganh1206/tinker/server"
-	"github.com/honganh1206/tinker/server/api"
 	"github.com/honganh1206/tinker/utils"
 	"github.com/spf13/cobra"
 )
@@ -53,7 +52,7 @@ func ChatHandler(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	client := api.NewClient("")
+	client := server.NewClient("")
 
 	provider := inference.ProviderName(llm.Provider)
 	llmSub.Provider = llm.Provider
@@ -129,7 +128,7 @@ func ConversationHandler(cmd *cobra.Command, args []string) error {
 		return errors.New("only one of '--list'")
 	}
 
-	client := api.NewClient("")
+	client := server.NewClient("")
 
 	if flagsSet == 1 {
 		switch showType {

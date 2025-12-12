@@ -27,11 +27,9 @@ func Serve(ln net.Listener) error {
 		log.Fatal("Failed to get home directory:", err)
 	}
 
-	// TODO: This should have their own function
-	// to be used directly by the CLI agent
 	dsn := filepath.Join(homeDir, ".tinker", "tinker.db")
 
-	db, err := db.OpenDB(dsn, data.ConversationSchema, data.PlanSchema)
+	db, err := db.Open(dsn, data.ConversationSchema, data.PlanSchema)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %s", err.Error())
 	}
@@ -50,11 +48,8 @@ func Serve(ln net.Listener) error {
 		w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	// Register conversation handlers
 	mux.HandleFunc("/conversations", srv.conversationHandler)
 	mux.HandleFunc("/conversations/", srv.conversationHandler)
-
-	// Register plan handlers
 	mux.HandleFunc("/plans", srv.planHandler)
 	mux.HandleFunc("/plans/", srv.planHandler)
 
@@ -76,6 +71,8 @@ func (s *server) conversationHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	case http.MethodPut:
 		s.saveConversation(w, r, convID)
+	case http.MethodPatch:
+		s.patchConversation(w, r, convID)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -178,6 +175,42 @@ func (s *server) saveConversation(w http.ResponseWriter, r *http.Request, conver
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "conversation saved"})
+}
+
+func (s *server) patchConversation(w http.ResponseWriter, r *http.Request, id string) {
+	var req struct {
+		TokenCount *int `json:"token_count"`
+	}
+
+	if err := decodeJSON(r, &req); err != nil {
+		handleError(w, &HTTPError{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request format",
+			Err:     err,
+		})
+		return
+	}
+
+	if req.TokenCount != nil {
+		if err := s.models.Conversations.UpdateTokenCount(id, *req.TokenCount); err != nil {
+			if err == data.ErrConversationNotFound {
+				handleError(w, &HTTPError{
+					Code:    http.StatusNotFound,
+					Message: "Conversation not found",
+					Err:     err,
+				})
+				return
+			}
+			handleError(w, &HTTPError{
+				Code:    http.StatusInternalServerError,
+				Message: "Failed to update token count",
+				Err:     err,
+			})
+			return
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "conversation updated"})
 }
 
 func (s *server) planHandler(w http.ResponseWriter, r *http.Request) {

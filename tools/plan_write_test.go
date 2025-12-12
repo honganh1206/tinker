@@ -4,20 +4,17 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/honganh1206/tinker/server/api"
+	"github.com/honganh1206/tinker/server"
 	"github.com/honganh1206/tinker/server/data"
 	"github.com/stretchr/testify/assert"
 )
 
 // Helper functions for plan_write tests
 
-func createTestAPIClient(t *testing.T) *api.Client {
+func createTestAPIClient(t *testing.T) server.APIClient {
 	t.Helper()
 
-	client := api.NewClient("")
-	// if err != nil {
-	// 	t.Fatalf("Failed to create test API client: %v", err)
-	// }
+	client := server.NewClient("")
 
 	return client
 }
@@ -452,4 +449,3 @@ func BenchmarkPlanWrite_SetStatus(b *testing.B) {
 		PlanWrite(createToolInput(inputJSON))
 	}
 }
-

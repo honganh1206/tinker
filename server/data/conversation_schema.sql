@@ -2,7 +2,8 @@ CREATE TABLE IF NOT EXISTS conversations (
     id TEXT PRIMARY KEY,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     title TEXT,
-    transcript TEXT
+    transcript TEXT,
+    token_count INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS messages (
