@@ -34,3 +34,6 @@ dist/
 bin/
 refs/
 prototypes/
+
+# bv (beads viewer) local config and caches
+.bv/
