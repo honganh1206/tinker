@@ -260,7 +260,6 @@ func TestEditFileDefinition_Structure(t *testing.T) {
 	assert.NotEmpty(t, EditFileDefinition.Description)
 	assert.NotNil(t, EditFileDefinition.InputSchema)
 	assert.NotNil(t, EditFileDefinition.Function)
-	assert.False(t, EditFileDefinition.IsSubTool)
 }
 
 func TestEditFileDefinition_FunctionExecution(t *testing.T) {

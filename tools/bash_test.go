@@ -103,7 +103,6 @@ func TestBashDefinition_Structure(t *testing.T) {
 	assert.NotEmpty(t, BashDefinition.Description)
 	assert.NotNil(t, BashDefinition.InputSchema)
 	assert.NotNil(t, BashDefinition.Function)
-	assert.False(t, BashDefinition.IsSubTool)
 }
 
 func TestBashDefinition_FunctionExecution(t *testing.T) {

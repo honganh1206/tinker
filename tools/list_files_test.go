@@ -238,7 +238,6 @@ func TestListFilesDefinition_Structure(t *testing.T) {
 	assert.NotEmpty(t, ListFilesDefinition.Description)
 	assert.NotNil(t, ListFilesDefinition.InputSchema)
 	assert.NotNil(t, ListFilesDefinition.Function)
-	assert.False(t, ListFilesDefinition.IsSubTool)
 }
 
 func TestListFilesDefinition_FunctionExecution(t *testing.T) {

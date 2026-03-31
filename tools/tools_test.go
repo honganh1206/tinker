@@ -50,7 +50,6 @@ func TestToolBox_MultipleLtools(t *testing.T) {
 				Name:        "tool2",
 				Description: "Second tool",
 				Function:    func(input ToolInput) (string, error) { return "result2", nil },
-				IsSubTool:   true,
 			},
 		},
 	}
@@ -58,8 +57,6 @@ func TestToolBox_MultipleLtools(t *testing.T) {
 	assert.Len(t, toolBox.Tools, 2)
 	assert.Equal(t, "tool1", toolBox.Tools[0].Name)
 	assert.Equal(t, "tool2", toolBox.Tools[1].Name)
-	assert.False(t, toolBox.Tools[0].IsSubTool)
-	assert.True(t, toolBox.Tools[1].IsSubTool)
 }
 
 // Tests for ToolDefinition
@@ -75,20 +72,6 @@ func TestToolDefinition_Creation(t *testing.T) {
 	assert.Equal(t, "test_tool", tool.Name)
 	assert.Equal(t, "Test description", tool.Description)
 	assert.NotNil(t, tool.Function)
-	assert.False(t, tool.IsSubTool)
-}
-
-func TestToolDefinition_SubTool(t *testing.T) {
-	tool := &ToolDefinition{
-		Name:        "sub_tool",
-		Description: "Sub tool description",
-		IsSubTool:   true,
-		Function: func(input ToolInput) (string, error) {
-			return "sub result", nil
-		},
-	}
-
-	assert.True(t, tool.IsSubTool)
 }
 
 func TestToolDefinition_FunctionExecution(t *testing.T) {

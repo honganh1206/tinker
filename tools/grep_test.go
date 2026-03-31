@@ -159,7 +159,6 @@ func TestGrepSearchDefinition_Structure(t *testing.T) {
 	assert.NotEmpty(t, GrepSearchDefinition.Description)
 	assert.NotNil(t, GrepSearchDefinition.InputSchema)
 	assert.NotNil(t, GrepSearchDefinition.Function)
-	assert.False(t, GrepSearchDefinition.IsSubTool)
 }
 
 func TestGrepSearchDefinition_FunctionExecution(t *testing.T) {

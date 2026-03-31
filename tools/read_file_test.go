@@ -159,7 +159,6 @@ func TestReadFileDefinition_Structure(t *testing.T) {
 	assert.NotEmpty(t, ReadFileDefinition.Description)
 	assert.NotNil(t, ReadFileDefinition.InputSchema)
 	assert.NotNil(t, ReadFileDefinition.Function)
-	assert.False(t, ReadFileDefinition.IsSubTool)
 }
 
 func TestReadFileDefinition_FunctionExecution(t *testing.T) {
