@@ -24,26 +24,11 @@ clean:
 	rm -f $(BIN_DIR)/$(BINARY_NAME)
 	rm -f $(BIN_DIR)/$(BINARY_UNIX)
 run:
-	$(GORUN) ./main.go
+	$(GORUN) ./main.go $(PROMPT)
+serve:
+	$(GORUN) ./main.go serve
 
 # Cross compilation
 build-linux:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BIN_DIR)/$(BINARY_UNIX) -v
-# run/new:
-# 	go run ./main.go
-# run/latest:
-# 	go run ./main.go -n=false
-# run/gemini:
-# 	go run ./main.go --provider=google
-# debug/cli:
-# 	go run ./main.go --tui=false
-# serve:
-# 	go run ./main.go serve
-# list/models:
-# 	go run ./main.go list
-# list/conversations:
-# 	go run ./main.go conversation -l
-# build:
-# 	$(eval VERSION := $(shell cat VERSION))
-# 	go build -ldflags="-s -X 'github.com/honganh1206/tinker/cmd.Version=$(VERSION)'" -o bin/tinker main.go
 
