@@ -12,19 +12,16 @@ import (
 	"github.com/honganh1206/tinker/inference"
 	"github.com/honganh1206/tinker/mcp"
 	"github.com/honganh1206/tinker/server"
+	"github.com/honganh1206/tinker/session"
 	"github.com/honganh1206/tinker/utils"
 	"github.com/spf13/cobra"
 )
 
 var (
 	llm              inference.BaseLLMClient
-	llmSub           inference.BaseLLMClient
 	verbose          bool
-	continueConv     bool
-	convID           string
 	mcpServerCmd     string
 	mcpServerConfigs []mcp.ServerConfig
-	useTUI           bool
 )
 
 var (
@@ -33,65 +30,39 @@ var (
 	BuildTime = "unknown"
 )
 
-func HelpHandler(cmd *cobra.Command, args []string) error {
-	fmt.Println("tinker - A simple CLI-based AI coding agent")
-	fmt.Println("\nUsage:")
-	fmt.Println("\ttinker -provider anthropic -model claude-4-sonnet")
-
-	return nil
-}
-
-func ChatHandler(cmd *cobra.Command, args []string) error {
-	new, err := cmd.Flags().GetBool("new-conversation")
-	if err != nil {
-		return err
+func RunHandler(cmd *cobra.Command, args []string) error {
+	prompt, _ := cmd.Flags().GetString("prompt")
+	if prompt == "" && len(args) > 0 {
+		prompt = strings.Join(args, " ")
+	}
+	if prompt == "" {
+		return fmt.Errorf("prompt is required: tinker \"your prompt here\"")
 	}
 
-	id, err := cmd.Flags().GetString("id")
-	if err != nil {
-		return err
-	}
-
-	client := server.NewClient("")
+	verifyCmd, _ := cmd.Flags().GetString("verify-cmd")
 
 	provider := inference.ProviderName(llm.Provider)
-	llmSub.Provider = llm.Provider
 	if llm.Model == "" {
-		defaultModel := inference.GetDefaultModel(provider)
-		defaultModelSub := inference.GetDefaultModelSubagent(provider)
-		if verbose {
-			fmt.Printf("No model specified, using default model for agent %s and subagent %s\n", defaultModel, defaultModelSub)
-		}
-		llm.Model = string(defaultModel)
-		llmSub.Model = string(defaultModelSub)
+		llm.Model = string(inference.GetDefaultModel(provider))
 	}
-
-	// Default number of max tokens
 	if llm.TokenLimit == 0 {
 		llm.TokenLimit = 8192
-		llmSub.TokenLimit = 8192
 	}
 
-	var convID string
-	if new {
-		convID = ""
-	} else {
-		if id != "" {
-			convID = id
-		} else {
-			convID, err = client.GetLatestConversationID()
-			if err != nil {
-				return err
-			}
-		}
+	cfg := session.SessionConfig{
+		LLMBase:    llm,
+		MCPConfigs: mcpServerConfigs,
+		Prompt:     prompt,
+		VerifyCmd:  verifyCmd,
+		Verbose:    verbose,
 	}
 
-	err = interactive(cmd.Context(), convID, llm, llmSub, client, mcpServerConfigs, useTUI)
+	result, err := session.RunSession(cmd.Context(), cfg)
 	if err != nil {
-		fmt.Printf("Error: %s\n", err.Error())
+		return err
 	}
 
-	return nil
+	return session.OutputResult(result)
 }
 
 func RunServer(cmd *cobra.Command, args []string) error {
@@ -241,12 +212,6 @@ func NewCLI() *cobra.Command {
 
 	conversationCmd.Flags().BoolP("list", "l", false, "Display all conversations")
 
-	helpCmd := &cobra.Command{
-		Use:   "help",
-		Short: "Show help",
-		RunE:  HelpHandler,
-	}
-
 	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print the version number of tinker",
@@ -282,7 +247,16 @@ Examples:
 
 	rootCmd := &cobra.Command{
 		Use:   "tinker",
-		Short: "An AI agent for code editing and assistance",
+		Short: "A background coding agent",
+		Long: `Tinker is a background coding agent that runs headlessly.
+
+Usage:
+  tinker "fix the linting errors"
+  tinker --verify-cmd "go test ./..." "add unit tests for auth"
+  tinker --provider anthropic --model claude-4-sonnet "refactor the handler"
+
+Output is structured JSON on stdout. Logs go to stderr.`,
+		Args: cobra.ArbitraryArgs,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if configs, err := mcp.LoadConfigs(); err == nil {
 				mcpServerConfigs = configs
@@ -290,20 +264,18 @@ Examples:
 					fmt.Printf("Loaded %d MCP server configurations\n", len(configs))
 				}
 			}
-			// TODO: Check if serve process is running, if not run here?
 		},
-		RunE: ChatHandler,
+		RunE: RunHandler,
 	}
 
 	rootCmd.PersistentFlags().StringVar(&llm.Provider, "provider", string(inference.GoogleProvider), "Provider (anthropic, gemini)")
 	rootCmd.PersistentFlags().StringVar(&llm.Model, "model", "", "Model to use (depends on selected model)")
 	rootCmd.PersistentFlags().Int64Var(&llm.TokenLimit, "max-tokens", 0, "Maximum number of tokens in response")
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Enable verbose output")
-	rootCmd.Flags().BoolVarP(&continueConv, "new-conversation", "n", true, "Continue from the latest conversation")
-	rootCmd.Flags().StringVarP(&convID, "id", "i", "", "Conversation ID to ")
-	rootCmd.Flags().BoolVar(&useTUI, "tui", true, "Use TUI (Terminal User Interface) mode")
+	rootCmd.Flags().StringP("prompt", "p", "", "The task prompt")
+	rootCmd.Flags().String("verify-cmd", "", "Verification command to run after agent completes")
 
-	rootCmd.AddCommand(versionCmd, modelCmd, conversationCmd, helpCmd, serveCmd, mcpCmd)
+	rootCmd.AddCommand(versionCmd, modelCmd, conversationCmd, serveCmd, mcpCmd)
 
 	return rootCmd
 }
