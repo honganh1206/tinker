@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/honganh1206/tinker/message"
-	"github.com/honganh1206/tinker/server/data"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,7 +36,7 @@ func TestSessionResultJSON(t *testing.T) {
 }
 
 func TestExtractFinalMessage(t *testing.T) {
-	conv := &data.Conversation{
+	conv := &message.Conversation{
 		ID: "test",
 		Messages: []*message.Message{
 			{
@@ -56,7 +55,7 @@ func TestExtractFinalMessage(t *testing.T) {
 }
 
 func TestExtractFinalMessage_Empty(t *testing.T) {
-	conv := &data.Conversation{
+	conv := &message.Conversation{
 		ID:       "test",
 		Messages: []*message.Message{},
 	}

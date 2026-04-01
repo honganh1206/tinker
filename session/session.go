@@ -12,8 +12,6 @@ import (
 	"github.com/honganh1206/tinker/inference"
 	"github.com/honganh1206/tinker/mcp"
 	"github.com/honganh1206/tinker/message"
-	"github.com/honganh1206/tinker/server"
-	"github.com/honganh1206/tinker/server/data"
 	"github.com/honganh1206/tinker/tools"
 )
 
@@ -24,7 +22,6 @@ type SessionConfig struct {
 	MCPConfigs []mcp.ServerConfig
 	Prompt     string
 	VerifyCmd  string
-	ServerURL  string
 	Verbose    bool
 }
 
@@ -37,11 +34,7 @@ func RunSession(ctx context.Context, cfg SessionConfig) (*SessionResult, error) 
 		return nil, fmt.Errorf("failed to initialize LLM: %w", err)
 	}
 
-	client := server.NewClient(cfg.ServerURL)
-	conv, err := client.CreateConversation()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create conversation: %w", err)
-	}
+	conv := message.NewConversation()
 
 	toolBox := &tools.ToolBox{
 		Tools: []*tools.ToolDefinition{
@@ -58,7 +51,6 @@ func RunSession(ctx context.Context, cfg SessionConfig) (*SessionResult, error) 
 		LLM:          llm,
 		Conversation: conv,
 		ToolBox:      toolBox,
-		Client:       client,
 		MCPConfigs:   cfg.MCPConfigs,
 		Logger:       logger,
 	})
@@ -115,11 +107,11 @@ func runVerifyCmd(ctx context.Context, cmdStr string) (string, error) {
 	return string(output), err
 }
 
-func resultFromError(conv *data.Conversation, prompt string, startedAt time.Time, err error, llm inference.LLMClient) *SessionResult {
+func resultFromError(conv *message.Conversation, prompt string, startedAt time.Time, err error, llm inference.LLMClient) *SessionResult {
 	return buildResult(conv, prompt, startedAt, StatusFailed, 0, err.Error(), llm)
 }
 
-func buildResult(conv *data.Conversation, prompt string, startedAt time.Time, status Status, retryCount int, errMsg string, llm inference.LLMClient) *SessionResult {
+func buildResult(conv *message.Conversation, prompt string, startedAt time.Time, status Status, retryCount int, errMsg string, llm inference.LLMClient) *SessionResult {
 	completedAt := time.Now()
 	finalMessage := extractFinalMessage(conv)
 
@@ -140,7 +132,7 @@ func buildResult(conv *data.Conversation, prompt string, startedAt time.Time, st
 	}
 }
 
-func extractFinalMessage(conv *data.Conversation) string {
+func extractFinalMessage(conv *message.Conversation) string {
 	for i := len(conv.Messages) - 1; i >= 0; i-- {
 		msg := conv.Messages[i]
 		if msg.Role == message.AssistantRole || msg.Role == message.ModelRole {

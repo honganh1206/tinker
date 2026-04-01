@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // TODO: Rename this struct to Payload?
@@ -181,4 +183,24 @@ func (m *Message) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+// Conversation holds the message history for a session
+type Conversation struct {
+	ID         string     `json:"id"`
+	Messages   []*Message `json:"messages"`
+	TokenCount int        `json:"token_count"`
+}
+
+func NewConversation() *Conversation {
+	id, _ := uuid.NewRandom()
+	return &Conversation{
+		ID:       id.String(),
+		Messages: make([]*Message, 0),
+	}
+}
+
+func (c *Conversation) Append(msg *Message) {
+	msg.Sequence = len(c.Messages)
+	c.Messages = append(c.Messages, msg)
 }

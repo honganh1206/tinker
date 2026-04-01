@@ -10,25 +10,21 @@ import (
 	"github.com/honganh1206/tinker/inference"
 	"github.com/honganh1206/tinker/mcp"
 	"github.com/honganh1206/tinker/message"
-	"github.com/honganh1206/tinker/server"
-	"github.com/honganh1206/tinker/server/data"
 	"github.com/honganh1206/tinker/tools"
 )
 
 type Agent struct {
-	LLM    inference.LLMClient
+	LLM     inference.LLMClient
 	ToolBox *tools.ToolBox
-	Conv   *data.Conversation
-	client server.APIClient
-	MCP    mcp.Config
-	Logger *slog.Logger
+	Conv    *message.Conversation
+	MCP     mcp.Config
+	Logger  *slog.Logger
 }
 
 type Config struct {
 	LLM          inference.LLMClient
-	Conversation *data.Conversation
+	Conversation *message.Conversation
 	ToolBox      *tools.ToolBox
-	Client       server.APIClient
 	MCPConfigs   []mcp.ServerConfig
 	Logger       *slog.Logger
 }
@@ -43,7 +39,6 @@ func New(config *Config) *Agent {
 		LLM:     config.LLM,
 		ToolBox: config.ToolBox,
 		Conv:    config.Conversation,
-		client:  config.Client,
 		Logger:  logger,
 	}
 
@@ -105,23 +100,12 @@ func (a *Agent) Run(ctx context.Context, userInput string, onDelta func(string))
 		}
 
 		if len(toolResults) == 0 {
-			// If we reach this case, it means we have finished processing the tool results
-			// and we are safe to return the text response from the agent and wait for the next input.
 			readUserInput = true
 			count, err := a.LLM.CountTokens(ctx)
 			if err != nil {
 				return err
 			}
 			a.Conv.TokenCount = count
-
-			if err := a.client.SaveConversation(a.Conv); err != nil {
-				return err
-			}
-
-			if err := a.client.UpdateTokenCount(a.Conv.ID, count); err != nil {
-				return err
-			}
-
 			break
 		}
 

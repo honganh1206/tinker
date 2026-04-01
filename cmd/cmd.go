@@ -3,17 +3,11 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"log"
-	"net"
-	"net/http"
 	"strings"
-	"time"
 
 	"github.com/honganh1206/tinker/inference"
 	"github.com/honganh1206/tinker/mcp"
-	"github.com/honganh1206/tinker/server"
 	"github.com/honganh1206/tinker/session"
-	"github.com/honganh1206/tinker/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -63,76 +57,6 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 	}
 
 	return session.OutputResult(result)
-}
-
-func RunServer(cmd *cobra.Command, args []string) error {
-	ln, err := net.Listen("tcp", ":11435")
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Running background server on %s\n", ln.Addr().String())
-	// TODO: Can this be on a separate goroutine?
-	// so when I execute the command I return to my current shell session?
-	err = server.Serve(ln)
-	if errors.Is(err, http.ErrServerClosed) {
-		return nil
-	}
-
-	return err
-}
-
-func ConversationHandler(cmd *cobra.Command, args []string) error {
-	list, err := cmd.Flags().GetBool("list")
-	if err != nil {
-		return err
-	}
-
-	flagsSet := 0
-	showType := ""
-
-	if list {
-		flagsSet++
-		showType = "list"
-	}
-
-	if flagsSet > 1 {
-		return errors.New("only one of '--list'")
-	}
-
-	client := server.NewClient("")
-
-	if flagsSet == 1 {
-		switch showType {
-		case "list":
-			conversations, err := client.ListConversations()
-			if err != nil {
-				log.Fatalf("Error listing conversations: %v", err)
-			}
-
-			if len(conversations) == 0 {
-				fmt.Println("No conversations found.")
-			} else {
-
-				headers := []string{"ID", "Created", "Last Message", "Messages"}
-				var data [][]string
-
-				for _, conv := range conversations {
-					row := []string{
-						conv.ID,
-						// TODO: A more read-friendly format?
-						conv.CreatedAt.Format(time.RFC3339),
-						conv.LatestMessageTime.Format(time.RFC3339),
-						fmt.Sprintf("%d", conv.MessageCount),
-					}
-					data = append(data, row)
-				}
-
-				utils.RenderTable(headers, data)
-			}
-		}
-	}
-
-	return nil
 }
 
 func ModelHandler(cmd *cobra.Command, args []string) error {
@@ -203,28 +127,12 @@ func NewCLI() *cobra.Command {
 		RunE:  ModelHandler,
 	}
 
-	conversationCmd := &cobra.Command{
-		Use:   "conversation",
-		Short: "Show conversations",
-		// Args:  cobra.ExactArgs(1),
-		RunE: ConversationHandler,
-	}
-
-	conversationCmd.Flags().BoolP("list", "l", false, "Display all conversations")
-
 	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print the version number of tinker",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("Tinker version %s (commit: %s, built: %s)\n", Version, GitCommit, BuildTime)
 		},
-	}
-
-	serveCmd := &cobra.Command{
-		Use:   "serve",
-		Short: "Start tinker server",
-		Args:  cobra.ExactArgs(0),
-		RunE:  RunServer,
 	}
 
 	mcpCmd := &cobra.Command{
@@ -275,7 +183,7 @@ Output is structured JSON on stdout. Logs go to stderr.`,
 	rootCmd.Flags().StringP("prompt", "p", "", "The task prompt")
 	rootCmd.Flags().String("verify-cmd", "", "Verification command to run after agent completes")
 
-	rootCmd.AddCommand(versionCmd, modelCmd, conversationCmd, serveCmd, mcpCmd)
+	rootCmd.AddCommand(versionCmd, modelCmd, mcpCmd)
 
 	return rootCmd
 }
