@@ -73,7 +73,7 @@ func RunSession(ctx context.Context, cfg SessionConfig) (*SessionResult, error) 
 	logger.Info("running agent", "prompt", cfg.Prompt, "model", llm.ModelName(), "provider", llm.ProviderName())
 	err = a.Run(ctx, cfg.Prompt, onDelta)
 	if err != nil {
-		return resultFromError(conv, startedAt, err, llm), nil
+		return resultFromError(conv, cfg.Prompt, startedAt, err, llm), nil
 	}
 
 	retryCount := 0
@@ -98,15 +98,15 @@ func RunSession(ctx context.Context, cfg SessionConfig) (*SessionResult, error) 
 				logger.Info("retrying agent with failure context", "attempt", attempt+2)
 				err = a.Run(ctx, retryPrompt, onDelta)
 				if err != nil {
-					return resultFromError(conv, startedAt, err, llm), nil
+					return resultFromError(conv, cfg.Prompt, startedAt, err, llm), nil
 				}
 			} else {
-				return buildResult(conv, startedAt, StatusPartial, retryCount, "verification failed after max retries", llm), nil
+				return buildResult(conv, cfg.Prompt, startedAt, StatusPartial, retryCount, "verification failed after max retries", llm), nil
 			}
 		}
 	}
 
-	return buildResult(conv, startedAt, StatusSuccess, retryCount, "", llm), nil
+	return buildResult(conv, cfg.Prompt, startedAt, StatusSuccess, retryCount, "", llm), nil
 }
 
 func runVerifyCmd(ctx context.Context, cmdStr string) (string, error) {
@@ -115,27 +115,28 @@ func runVerifyCmd(ctx context.Context, cmdStr string) (string, error) {
 	return string(output), err
 }
 
-func resultFromError(conv *data.Conversation, startedAt time.Time, err error, llm inference.LLMClient) *SessionResult {
-	return buildResult(conv, startedAt, StatusFailed, 0, err.Error(), llm)
+func resultFromError(conv *data.Conversation, prompt string, startedAt time.Time, err error, llm inference.LLMClient) *SessionResult {
+	return buildResult(conv, prompt, startedAt, StatusFailed, 0, err.Error(), llm)
 }
 
-func buildResult(conv *data.Conversation, startedAt time.Time, status Status, retryCount int, errMsg string, llm inference.LLMClient) *SessionResult {
+func buildResult(conv *data.Conversation, prompt string, startedAt time.Time, status Status, retryCount int, errMsg string, llm inference.LLMClient) *SessionResult {
 	completedAt := time.Now()
 	finalMessage := extractFinalMessage(conv)
 
 	return &SessionResult{
-		SessionID:      conv.ID,
-		ConversationID: conv.ID,
-		Status:         status,
-		StartedAt:      startedAt,
-		CompletedAt:    completedAt,
-		DurationMs:     completedAt.Sub(startedAt).Milliseconds(),
-		TokensUsed:     conv.TokenCount,
-		RetryCount:     retryCount,
-		FinalMessage:   finalMessage,
-		Error:          errMsg,
-		Model:          llm.ModelName(),
-		Provider:       llm.ProviderName(),
+		SessionID:    conv.ID,
+		Status:       status,
+		Prompt:       prompt,
+		StartedAt:    startedAt,
+		CompletedAt:  completedAt,
+		DurationMs:   completedAt.Sub(startedAt).Milliseconds(),
+		TokensUsed:   conv.TokenCount,
+		RetryCount:   retryCount,
+		FinalMessage: finalMessage,
+		Error:        errMsg,
+		Model:        llm.ModelName(),
+		Provider:     llm.ProviderName(),
+		Messages:     conv.Messages,
 	}
 }
 

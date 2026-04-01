@@ -12,17 +12,17 @@ import (
 
 func TestSessionResultJSON(t *testing.T) {
 	r := &SessionResult{
-		SessionID:      "test-123",
-		ConversationID: "test-123",
-		Status:         StatusSuccess,
-		StartedAt:      time.Now(),
-		CompletedAt:    time.Now(),
-		DurationMs:     1500,
-		TokensUsed:     4200,
-		RetryCount:     0,
-		FinalMessage:   "Done",
-		Model:          "claude-4-sonnet",
-		Provider:       "Claude",
+		SessionID:    "test-123",
+		Status:       StatusSuccess,
+		Prompt:       "test prompt",
+		StartedAt:    time.Now(),
+		CompletedAt:  time.Now(),
+		DurationMs:   1500,
+		TokensUsed:   4200,
+		RetryCount:   0,
+		FinalMessage: "Done",
+		Model:        "claude-4-sonnet",
+		Provider:     "Claude",
 	}
 
 	bytes, err := json.Marshal(r)
