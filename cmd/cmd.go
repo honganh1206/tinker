@@ -3,11 +3,13 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/honganh1206/tinker/inference"
 	"github.com/honganh1206/tinker/mcp"
 	"github.com/honganh1206/tinker/session"
+	"github.com/honganh1206/tinker/store"
 	"github.com/spf13/cobra"
 )
 
@@ -54,6 +56,14 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 	result, err := session.RunSession(cmd.Context(), cfg)
 	if err != nil {
 		return err
+	}
+
+	// Save session to file store
+	s, err := store.NewFileStore("")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to save session: %v\n", err)
+	} else if err := s.Save(result); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to save session: %v\n", err)
 	}
 
 	return session.OutputResult(result)
@@ -120,6 +130,29 @@ func MCPHandler(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func SessionsHandler(cmd *cobra.Command, args []string) error {
+	s, err := store.NewFileStore("")
+	if err != nil {
+		return fmt.Errorf("failed to open session store: %w", err)
+	}
+
+	summaries, err := s.List()
+	if err != nil {
+		return fmt.Errorf("failed to list sessions: %w", err)
+	}
+
+	if len(summaries) == 0 {
+		fmt.Println("No sessions found.")
+		return nil
+	}
+
+	for _, s := range summaries {
+		fmt.Printf("%-10s %-8s %s\n", s.ID[:8], s.Status, s.Prompt)
+	}
+
+	return nil
+}
+
 func NewCLI() *cobra.Command {
 	modelCmd := &cobra.Command{
 		Use:   "model",
@@ -153,6 +186,12 @@ Examples:
 
 	mcpCmd.Flags().StringVar(&mcpServerCmd, "server-cmd", "", "Server configuration in format id:command (e.g., 'my-server:uvx mcp-server-fetch')")
 
+	sessionsCmd := &cobra.Command{
+		Use:   "sessions",
+		Short: "List past sessions",
+		RunE:  SessionsHandler,
+	}
+
 	rootCmd := &cobra.Command{
 		Use:   "tinker",
 		Short: "A background coding agent",
@@ -183,7 +222,7 @@ Output is structured JSON on stdout. Logs go to stderr.`,
 	rootCmd.Flags().StringP("prompt", "p", "", "The task prompt")
 	rootCmd.Flags().String("verify-cmd", "", "Verification command to run after agent completes")
 
-	rootCmd.AddCommand(versionCmd, modelCmd, mcpCmd)
+	rootCmd.AddCommand(versionCmd, modelCmd, mcpCmd, sessionsCmd)
 
 	return rootCmd
 }
