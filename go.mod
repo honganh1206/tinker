@@ -6,7 +6,6 @@ require (
 	github.com/anthropics/anthropic-sdk-go v1.19.0
 	github.com/google/uuid v1.6.0
 	github.com/invopop/jsonschema v0.13.0
-	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/olekukonko/tablewriter v1.0.7
 	github.com/stretchr/testify v1.8.4
 	google.golang.org/genai v1.36.0
