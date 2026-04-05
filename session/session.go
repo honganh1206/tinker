@@ -18,7 +18,7 @@ import (
 const MaxRetries = 1
 
 type SessionConfig struct {
-	LLMBase    inference.BaseLLMClient
+	LLMBase    inference.ClientConfig
 	MCPConfigs []mcp.ServerConfig
 	Prompt     string
 	VerifyCmd  string
@@ -44,6 +44,7 @@ func RunSession(ctx context.Context, cfg SessionConfig) (*SessionResult, error) 
 			&tools.GrepSearchDefinition,
 			&tools.FinderDefinition,
 			&tools.BashDefinition,
+			&tools.WebSearchDefinition,
 		},
 	}
 
@@ -55,15 +56,15 @@ func RunSession(ctx context.Context, cfg SessionConfig) (*SessionResult, error) 
 		Logger:       logger,
 	})
 
-	a.RegisterMCPServers()
-	defer a.ShutdownMCPServers()
-
-	onDelta := func(delta string) {
-		logger.Debug("agent", "delta", delta)
+	if err := a.StartMCP(ctx, cfg.MCPConfigs); err != nil {
+		return nil, fmt.Errorf("failed to start MCP servers: %w", err)
+	}
+	if a.MCP != nil {
+		defer a.MCP.Close()
 	}
 
-	logger.Info("running agent", "prompt", cfg.Prompt, "model", llm.ModelName(), "provider", llm.ProviderName())
-	err = a.Run(ctx, cfg.Prompt, onDelta)
+	logger.Info("running agent", "prompt", cfg.Prompt, "model", llm.Model(), "provider", llm.Provider())
+	err = a.Run(ctx, cfg.Prompt)
 	if err != nil {
 		return resultFromError(conv, cfg.Prompt, startedAt, err, llm), nil
 	}
@@ -88,7 +89,7 @@ func RunSession(ctx context.Context, cfg SessionConfig) (*SessionResult, error) 
 					cfg.VerifyCmd, output,
 				)
 				logger.Info("retrying agent with failure context", "attempt", attempt+2)
-				err = a.Run(ctx, retryPrompt, onDelta)
+				err = a.Run(ctx, retryPrompt)
 				if err != nil {
 					return resultFromError(conv, cfg.Prompt, startedAt, err, llm), nil
 				}
@@ -126,8 +127,8 @@ func buildResult(conv *message.Conversation, prompt string, startedAt time.Time,
 		RetryCount:   retryCount,
 		FinalMessage: finalMessage,
 		Error:        errMsg,
-		Model:        llm.ModelName(),
-		Provider:     llm.ProviderName(),
+		Model:        llm.Model(),
+		Provider:     llm.Provider(),
 		Messages:     conv.Messages,
 	}
 }
@@ -135,7 +136,7 @@ func buildResult(conv *message.Conversation, prompt string, startedAt time.Time,
 func extractFinalMessage(conv *message.Conversation) string {
 	for i := len(conv.Messages) - 1; i >= 0; i-- {
 		msg := conv.Messages[i]
-		if msg.Role == message.AssistantRole || msg.Role == message.ModelRole {
+		if msg.Role == message.AssistantRole {
 			for _, block := range msg.Content {
 				if tb, ok := block.(message.TextBlock); ok && tb.Text != "" {
 					return tb.Text

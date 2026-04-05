@@ -11,62 +11,35 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/honganh1206/tinker/inference"
 	"github.com/honganh1206/tinker/mcp"
 	"github.com/honganh1206/tinker/message"
 	"github.com/honganh1206/tinker/tools"
 )
 
-// Mock LLM client for testing
 type mockLLMClient struct {
 	mock.Mock
 }
 
-func (m *mockLLMClient) RunInference(ctx context.Context, onDelta func(string), streaming bool) (*message.Message, error) {
-	args := m.Called(ctx, onDelta, streaming)
+func (m *mockLLMClient) Generate(ctx context.Context, req inference.Request) (*message.Message, error) {
+	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*message.Message), args.Error(1)
 }
 
-func (m *mockLLMClient) SummarizeHistory(history []*message.Message, threshold int) []*message.Message {
-	args := m.Called(history, threshold)
-	return args.Get(0).([]*message.Message)
-}
-
-func (m *mockLLMClient) TruncateMessage(msg *message.Message, threshold int) *message.Message {
-	args := m.Called(msg, threshold)
-	return args.Get(0).(*message.Message)
-}
-
-func (m *mockLLMClient) ProviderName() string {
-	args := m.Called()
-	return args.String(0)
-}
-
-func (m *mockLLMClient) ModelName() string {
-	args := m.Called()
-	return args.String(0)
-}
-
-func (m *mockLLMClient) ToNativeHistory(history []*message.Message) error {
-	args := m.Called(history)
-	return args.Error(0)
-}
-
-func (m *mockLLMClient) ToNativeMessage(msg *message.Message) error {
-	args := m.Called(msg)
-	return args.Error(0)
-}
-
-func (m *mockLLMClient) ToNativeTools(tools []*tools.ToolDefinition) error {
-	args := m.Called(tools)
-	return args.Error(0)
-}
-
-func (m *mockLLMClient) CountTokens(ctx context.Context) (int, error) {
-	args := m.Called(ctx)
+func (m *mockLLMClient) CountTokens(ctx context.Context, req inference.Request) (int, error) {
+	args := m.Called(ctx, req)
 	return args.Int(0), args.Error(1)
+}
+
+func (m *mockLLMClient) Provider() string {
+	return "mock"
+}
+
+func (m *mockLLMClient) Model() string {
+	return "mock-model"
 }
 
 // Test helpers
@@ -145,10 +118,11 @@ func TestNew(t *testing.T) {
 			assert.Equal(t, conv, agent.Conv)
 			assert.Equal(t, toolBox, agent.ToolBox)
 			assert.NotNil(t, agent.Logger)
-			assert.Equal(t, tt.mcpCount, len(agent.MCP.ServerConfigs))
-			assert.NotNil(t, agent.MCP.ActiveServers)
-			assert.NotNil(t, agent.MCP.Tools)
-			assert.NotNil(t, agent.MCP.ToolMap)
+			if tt.mcpCount > 0 {
+				assert.NotNil(t, agent.MCP)
+			} else {
+				assert.Nil(t, agent.MCP)
+			}
 		})
 	}
 }
@@ -156,27 +130,15 @@ func TestNew(t *testing.T) {
 func TestAgent_Run_SimpleTextResponse(t *testing.T) {
 	agent, mockLLM := createTestAgent()
 
-	// Setup mocks
-	mockLLM.On("SummarizeHistory", mock.Anything, 20).Return([]*message.Message{})
-	mockLLM.On("ToNativeTools", mock.Anything).Return(nil)
-	mockLLM.On("ToNativeMessage", mock.Anything).Return(nil)
-	mockLLM.On("RunInference", mock.MatchedBy(func(ctx context.Context) bool { return true }), mock.Anything, true).Return(
+	mockLLM.On("Generate", mock.Anything, mock.Anything).Return(
 		createTestMessage(message.AssistantRole, "Hello, how can I help?"), nil)
-	mockLLM.On("CountTokens", mock.MatchedBy(func(ctx context.Context) bool { return true })).Return(0, nil).Once()
+	mockLLM.On("CountTokens", mock.Anything, mock.Anything).Return(0, nil).Once()
 
-	ctx := context.Background()
-	userInput := "Hello"
-	deltaReceived := ""
-	onDelta := func(delta string) {
-		deltaReceived += delta
-	}
-
-	err := agent.Run(ctx, userInput, onDelta)
+	err := agent.Run(context.Background(), "Hello")
 
 	assert.NoError(t, err)
-	assert.Len(t, agent.Conv.Messages, 2) // User message + Assistant message
+	assert.Len(t, agent.Conv.Messages, 2)
 
-	// Verify user message was added
 	userMsg := agent.Conv.Messages[0]
 	assert.Equal(t, message.UserRole, userMsg.Role)
 	assert.Len(t, userMsg.Content, 1)
@@ -190,7 +152,6 @@ func TestAgent_Run_SimpleTextResponse(t *testing.T) {
 func TestAgent_Run_WithToolUse(t *testing.T) {
 	agent, mockLLM := createTestAgent()
 
-	// Create tool use message
 	toolInput, _ := json.Marshal(map[string]string{"query": "test"})
 	toolUseMsg := &message.Message{
 		Role: message.AssistantRole,
@@ -200,25 +161,16 @@ func TestAgent_Run_WithToolUse(t *testing.T) {
 		CreatedAt: time.Now(),
 	}
 
-	// Final response after tool execution
 	finalMsg := createTestMessage(message.AssistantRole, "Tool executed successfully")
 
-	// Setup mocks
-	mockLLM.On("SummarizeHistory", mock.Anything, 20).Return([]*message.Message{})
-	mockLLM.On("ToNativeTools", mock.Anything).Return(nil)
-	mockLLM.On("ToNativeMessage", mock.Anything).Return(nil)
-	mockLLM.On("RunInference", mock.MatchedBy(func(ctx context.Context) bool { return true }), mock.Anything, true).Return(toolUseMsg, nil).Once()
-	mockLLM.On("RunInference", mock.MatchedBy(func(ctx context.Context) bool { return true }), mock.Anything, true).Return(finalMsg, nil).Once()
-	mockLLM.On("CountTokens", mock.MatchedBy(func(ctx context.Context) bool { return true })).Return(1, nil).Once()
+	mockLLM.On("Generate", mock.Anything, mock.Anything).Return(toolUseMsg, nil).Once()
+	mockLLM.On("Generate", mock.Anything, mock.Anything).Return(finalMsg, nil).Once()
+	mockLLM.On("CountTokens", mock.Anything, mock.Anything).Return(1, nil).Once()
 
-	ctx := context.Background()
-	userInput := "Use the test tool"
-	onDelta := func(delta string) {}
-
-	err := agent.Run(ctx, userInput, onDelta)
+	err := agent.Run(context.Background(), "Use the test tool")
 
 	assert.NoError(t, err)
-	assert.Greater(t, len(agent.Conv.Messages), 2) // Should have multiple messages
+	assert.Greater(t, len(agent.Conv.Messages), 2)
 
 	mockLLM.AssertExpectations(t)
 }
@@ -228,17 +180,9 @@ func TestAgent_Run_LLMError(t *testing.T) {
 
 	expectedError := errors.New("LLM inference failed")
 
-	// Setup mocks
-	mockLLM.On("SummarizeHistory", mock.Anything, 20).Return([]*message.Message{})
-	mockLLM.On("ToNativeTools", mock.Anything).Return(nil)
-	mockLLM.On("ToNativeMessage", mock.Anything).Return(nil)
-	mockLLM.On("RunInference", mock.MatchedBy(func(ctx context.Context) bool { return true }), mock.Anything, true).Return(nil, expectedError)
+	mockLLM.On("Generate", mock.Anything, mock.Anything).Return(nil, expectedError)
 
-	ctx := context.Background()
-	userInput := "Hello"
-	onDelta := func(delta string) {}
-
-	err := agent.Run(ctx, userInput, onDelta)
+	err := agent.Run(context.Background(), "Hello")
 
 	assert.Error(t, err)
 	assert.Equal(t, expectedError, err)
@@ -301,46 +245,12 @@ func TestAgent_executeLocalTool_ToolError(t *testing.T) {
 	assert.True(t, toolResult.IsError)
 }
 
-func TestAgent_streamResponse_Success(t *testing.T) {
-	agent, mockLLM := createTestAgent()
-
-	expectedMessage := createTestMessage(message.AssistantRole, "Streamed response")
-	mockLLM.On("RunInference", mock.MatchedBy(func(ctx context.Context) bool { return true }), mock.Anything, true).Return(expectedMessage, nil)
-
-	ctx := context.Background()
-	onDelta := func(delta string) {}
-
-	result, err := agent.streamResponse(ctx, onDelta)
-
-	assert.NoError(t, err)
-	assert.Equal(t, expectedMessage, result)
-	mockLLM.AssertExpectations(t)
-}
-
-func TestAgent_streamResponse_Error(t *testing.T) {
-	agent, mockLLM := createTestAgent()
-
-	expectedError := errors.New("streaming failed")
-	mockLLM.On("RunInference", mock.MatchedBy(func(ctx context.Context) bool { return true }), mock.Anything, true).Return(nil, expectedError)
-
-	ctx := context.Background()
-	onDelta := func(delta string) {}
-
-	result, err := agent.streamResponse(ctx, onDelta)
-
-	assert.Error(t, err)
-	assert.Equal(t, expectedError, err)
-	assert.Nil(t, result)
-	mockLLM.AssertExpectations(t)
-}
-
 func TestAgent_executeTool_LocalTool(t *testing.T) {
 	agent, _ := createTestAgent()
 
 	toolInput, _ := json.Marshal(map[string]string{"query": "test"})
-	onDelta := func(delta string) {}
 
-	result := agent.executeTool("tool-123", "test_tool", toolInput, onDelta)
+	result := agent.executeTool(context.Background(), "tool-123", "test_tool", toolInput)
 
 	assert.IsType(t, message.ToolResultBlock{}, result)
 	toolResult := result.(message.ToolResultBlock)

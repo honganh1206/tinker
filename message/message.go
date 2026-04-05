@@ -23,9 +23,6 @@ type Message struct {
 const (
 	UserRole      = "user"
 	AssistantRole = "assistant"
-	// Gemini uses model instead of assistant
-	// TODO: 2-way conversion from and to assistant
-	ModelRole = "model"
 )
 
 const (

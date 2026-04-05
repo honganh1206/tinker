@@ -5,26 +5,13 @@ import (
 	"strings"
 )
 
-//go:embed claude.md
-var claudeSystemPrompt string
+//go:embed system.md
+var systemPrompt string
 
-// TODO: Parameterize this with LLM provider name
-func ClaudeSystemPrompt() string {
-	trimmedPrompt := strings.TrimSpace(string(claudeSystemPrompt))
+func SystemPrompt() string {
+	trimmedPrompt := strings.TrimSpace(systemPrompt)
 	if len(trimmedPrompt) == 0 {
-		return claudeSystemPrompt
-	}
-
-	return trimmedPrompt
-}
-
-//go:embed gemini.md
-var geminiSystemPrompt string
-
-func GeminiSystemPrompt() string {
-	trimmedPrompt := strings.TrimSpace(string(geminiSystemPrompt))
-	if len(trimmedPrompt) == 0 {
-		return geminiSystemPrompt
+		return systemPrompt
 	}
 
 	return trimmedPrompt

@@ -1,11 +1,6 @@
 package inference
 
 const (
-	AnthropicModelName = "Claude"
-	GoogleModelName    = "Gemini"
-)
-
-const (
 	AnthropicProvider = "anthropic"
 	GoogleProvider    = "google"
 )
@@ -17,10 +12,12 @@ type (
 
 const (
 	// Claude
+	Claude46Opus   ModelVersion = "claude-4-6-opus"
 	Claude45Opus   ModelVersion = "claude-4-5-opus"
 	Claude41Opus   ModelVersion = "claude-4-1-opus"
 	Claude4Opus    ModelVersion = "claude-4-opus"
 	Claude3Opus    ModelVersion = "claude-3-opus"
+	Claude46Sonnet ModelVersion = "claude-4-6-sonnet"
 	Claude45Sonnet ModelVersion = "claude-4-5-sonnet"
 	Claude4Sonnet  ModelVersion = "claude-4-sonnet"
 	Claude35Sonnet ModelVersion = "claude-3-5-sonnet"

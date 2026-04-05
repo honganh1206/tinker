@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	llm              inference.BaseLLMClient
+	llm              inference.ClientConfig
 	verbose          bool
 	mcpServerCmd     string
 	mcpServerConfigs []mcp.ServerConfig
@@ -37,9 +37,9 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 
 	verifyCmd, _ := cmd.Flags().GetString("verify-cmd")
 
-	provider := inference.ProviderName(llm.Provider)
-	if llm.Model == "" {
-		llm.Model = string(inference.GetDefaultModel(provider))
+	provider := inference.ProviderName(llm.ProviderName)
+	if llm.ModelName == "" {
+		llm.ModelName = string(inference.GetDefaultModel(provider))
 	}
 	if llm.TokenLimit == 0 {
 		llm.TokenLimit = 8192
@@ -70,7 +70,7 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 }
 
 func ModelHandler(cmd *cobra.Command, args []string) error {
-	provider := inference.ProviderName(llm.Provider)
+	provider := inference.ProviderName(llm.ProviderName)
 	models := inference.ListAvailableModels(provider)
 
 	if len(models) > 0 {
@@ -215,8 +215,8 @@ Output is structured JSON on stdout. Logs go to stderr.`,
 		RunE: RunHandler,
 	}
 
-	rootCmd.PersistentFlags().StringVar(&llm.Provider, "provider", string(inference.GoogleProvider), "Provider (anthropic, gemini)")
-	rootCmd.PersistentFlags().StringVar(&llm.Model, "model", "", "Model to use (depends on selected model)")
+	rootCmd.PersistentFlags().StringVar(&llm.ProviderName, "provider", string(inference.AnthropicProvider), "Provider (anthropic, gemini)")
+	rootCmd.PersistentFlags().StringVar(&llm.ModelName, "model", "", "Model to use (depends on selected model)")
 	rootCmd.PersistentFlags().Int64Var(&llm.TokenLimit, "max-tokens", 0, "Maximum number of tokens in response")
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Enable verbose output")
 	rootCmd.Flags().StringP("prompt", "p", "", "The task prompt")

@@ -13,6 +13,8 @@ const (
 	ToolNameGrepSearch = "grep_search"
 	ToolNameListFiles  = "list_files"
 	ToolNameFinder     = "finder"
+	ToolNameWebSearch   = "web_search"
+	ToolNameReadWebPage = "read_web_page"
 )
 
 type ToolBox struct {

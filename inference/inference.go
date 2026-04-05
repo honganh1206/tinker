@@ -3,7 +3,6 @@ package inference
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -13,48 +12,44 @@ import (
 	"google.golang.org/genai"
 )
 
+type Request struct {
+	Messages     []*message.Message
+	Tools        []*tools.ToolDefinition
+	SystemPrompt string
+	MaxTokens    int64
+}
+
 type LLMClient interface {
-	// TODO: This still needs some rewrites.
-	// We must separate RunInference into 2 signatures: One for snapshot and one for streaming.
-	// The two signatures should share the same params, only differ in return type.
-	// Refer to https://github.com/madebywelch/anthropic-go/blob/main/pkg/anthropic/client/client.go for the design.
-	// The onDelta should be in agent.go, and we need to remove the streaming flag.
-	RunInference(ctx context.Context, onDelta func(string), streaming bool) (*message.Message, error)
-	// TODO: Custom return type for token count?
-	CountTokens(ctx context.Context) (int, error)
-	SummarizeHistory(history []*message.Message, threshold int) []*message.Message
-	// ApplySlidingWindow(history []*message.Message, windowSize int) []*message.Message
-	TruncateMessage(msg *message.Message, threshold int) *message.Message
-	ProviderName() string
-	ModelName() string
-	ToNativeHistory(history []*message.Message) error
-	ToNativeMessage(msg *message.Message) error
-	ToNativeTools(tools []*tools.ToolDefinition) error
+	Generate(ctx context.Context, req Request) (*message.Message, error)
+	CountTokens(ctx context.Context, req Request) (int, error)
+	Provider() string
+	Model() string
 }
 
-type BaseLLMClient struct {
-	Provider   string
-	Model      string
-	TokenLimit int64
+type ClientConfig struct {
+	ProviderName string
+	ModelName    string
+	TokenLimit   int64
 }
 
-func Init(ctx context.Context, llm BaseLLMClient) (LLMClient, error) {
-	switch llm.Provider {
+func Init(ctx context.Context, cfg ClientConfig) (LLMClient, error) {
+	switch cfg.ProviderName {
 	case AnthropicProvider:
-		client := anthropic.NewClient() // Default to look up ANTHROPIC_API_KEY
-		sysPrompt := prompts.ClaudeSystemPrompt()
-		return NewAnthropicClient(&client, ModelVersion(llm.Model), llm.TokenLimit, sysPrompt), nil
+		client := anthropic.NewClient()
+		sysPrompt := prompts.SystemPrompt()
+		return NewAnthropicClient(&client, ModelVersion(cfg.ModelName), cfg.TokenLimit, sysPrompt), nil
 	case GoogleProvider:
 		client, err := genai.NewClient(ctx, &genai.ClientConfig{
 			APIKey:  os.Getenv("GOOGLE_API_KEY"),
 			Backend: genai.BackendGeminiAPI,
 		})
 		if err != nil {
-			log.Fatal(err)
+			return nil, fmt.Errorf("failed to create Gemini client: %w", err)
 		}
-		return NewGeminiClient(client, ModelVersion(llm.Model), llm.TokenLimit), nil
+		sysPrompt := prompts.SystemPrompt()
+		return NewGeminiClient(client, ModelVersion(cfg.ModelName), cfg.TokenLimit, sysPrompt), nil
 	default:
-		return nil, fmt.Errorf("unknown model provider: %s", llm.Provider)
+		return nil, fmt.Errorf("unknown model provider: %s", cfg.ProviderName)
 	}
 }
 
@@ -88,7 +83,7 @@ func ListAvailableModels(provider ProviderName) []ModelVersion {
 func GetDefaultModel(provider ProviderName) ModelVersion {
 	switch provider {
 	case AnthropicProvider:
-		return Claude45Opus
+		return Claude46Opus
 	case GoogleProvider:
 		return Gemini3Pro
 	default:
@@ -96,54 +91,4 @@ func GetDefaultModel(provider ProviderName) ModelVersion {
 	}
 }
 
-func GetDefaultModelSubagent(provider ProviderName) ModelVersion {
-	switch provider {
-	case AnthropicProvider:
-		return Claude35Haiku
-	case GoogleProvider:
-		return Gemini25Flash
-	default:
-		return ""
-	}
-}
 
-func (b *BaseLLMClient) BaseSummarizeHistory(history []*message.Message, threshold int) []*message.Message {
-	if len(history) <= threshold {
-		return history
-	}
-
-	var summarizedHistory []*message.Message
-	// Keep the system prompt
-	summarizedHistory = append(summarizedHistory, history[0])
-
-	// TODO: Call a subagent to summarize old messages
-
-	// Keep the most recent messages
-	recentMessages := history[len(history)-threshold:]
-	summarizedHistory = append(summarizedHistory, recentMessages...)
-
-	return summarizedHistory
-}
-
-// TODO: Refer to truncate logic in smolkafka Truncate method in log.go
-func (b *BaseLLMClient) BaseTruncateMessage(msg *message.Message, threshold int) *message.Message {
-	for i, b := range msg.Content {
-		// TODO: A new parameter to specify which keys to preserve
-		// Should we add check to continue if not ToolResultBlock?
-		if toolResult, ok := b.(message.ToolResultBlock); ok {
-			if len(toolResult.Content) < threshold {
-				return msg
-			}
-			truncated := toolResult.Content[:threshold/2] +
-				"\n... [TRUNCATED] ...\n" +
-				toolResult.Content[len(toolResult.Content)-threshold/2:]
-			msg.Content[i] = message.NewToolResultBlock(
-				toolResult.ToolUseID,
-				toolResult.ToolName,
-				truncated,
-				toolResult.IsError,
-			)
-		}
-	}
-	return msg
-}

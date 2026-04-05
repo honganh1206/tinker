@@ -15,6 +15,7 @@ A background coding agent. Give it a prompt, walk away, get results.
 ```bash
 export ANTHROPIC_API_KEY="your-api-key-here"
 export GOOGLE_API_KEY="your-api-key-here"
+export BRAVE_SEARCH_API_KEY="your-api-key-here"  # Optional, enables web search
 ```
 
 2. Run the installation script (Linux only):
@@ -55,7 +56,7 @@ Output is structured JSON on stdout. Logs go to stderr.
 
 ```bash
 tinker model                    # List available models
-tinker conversation -l          # List conversations
+tinker sessions                 # List sessions
 tinker version                  # Show version
 ```
 

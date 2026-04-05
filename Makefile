@@ -25,8 +25,6 @@ clean:
 	rm -f $(BIN_DIR)/$(BINARY_UNIX)
 run:
 	$(GORUN) ./main.go $(PROMPT)
-serve:
-	$(GORUN) ./main.go serve
 
 # Cross compilation
 build-linux:

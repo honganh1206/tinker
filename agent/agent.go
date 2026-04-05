@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"sync"
 
 	"github.com/honganh1206/tinker/inference"
 	"github.com/honganh1206/tinker/mcp"
@@ -17,7 +16,7 @@ type Agent struct {
 	LLM     inference.LLMClient
 	ToolBox *tools.ToolBox
 	Conv    *message.Conversation
-	MCP     mcp.Config
+	MCP     *mcp.Manager
 	Logger  *slog.Logger
 }
 
@@ -35,73 +34,72 @@ func New(config *Config) *Agent {
 		logger = slog.Default()
 	}
 
-	agent := &Agent{
+	a := &Agent{
 		LLM:     config.LLM,
 		ToolBox: config.ToolBox,
 		Conv:    config.Conversation,
 		Logger:  logger,
 	}
 
-	agent.MCP.ServerConfigs = config.MCPConfigs
-	agent.MCP.ActiveServers = []*mcp.Server{}
-	agent.MCP.Tools = []mcp.Tools{}
-	agent.MCP.ToolMap = make(map[string]mcp.ToolDetails)
+	if len(config.MCPConfigs) > 0 {
+		a.MCP = mcp.NewManager()
+	}
 
-	return agent
+	return a
+}
+
+func (a *Agent) StartMCP(ctx context.Context, configs []mcp.ServerConfig) error {
+	if a.MCP == nil {
+		return nil
+	}
+
+	exposed, err := a.MCP.Start(ctx, configs)
+	if err != nil {
+		return err
+	}
+
+	for _, t := range exposed {
+		a.ToolBox.Tools = append(a.ToolBox.Tools, &tools.ToolDefinition{
+			Name:        t.Name,
+			Description: t.Description,
+			InputSchema: t.InputSchema,
+		})
+	}
+
+	return nil
 }
 
 // Run handles a single user message and returns the agent's response
-func (a *Agent) Run(ctx context.Context, userInput string, onDelta func(string)) error {
-	readUserInput := true
-
-	// TODO: Add flag to know when to summarize
-	a.Conv.Messages = a.LLM.SummarizeHistory(a.Conv.Messages, 20)
-
-	if len(a.Conv.Messages) != 0 {
-		a.LLM.ToNativeHistory(a.Conv.Messages)
+func (a *Agent) Run(ctx context.Context, userInput string) error {
+	userMsg := &message.Message{
+		Role:    message.UserRole,
+		Content: []message.ContentBlock{message.NewTextBlock(userInput)},
 	}
-
-	a.LLM.ToNativeTools(a.ToolBox.Tools)
+	a.Conv.Append(userMsg)
 
 	for {
-		if readUserInput {
-			userMsg := &message.Message{
-				Role:    message.UserRole,
-				Content: []message.ContentBlock{message.NewTextBlock(userInput)},
-			}
-
-			err := a.LLM.ToNativeMessage(userMsg)
-			if err != nil {
-				return err
-			}
-
-			a.Conv.Append(userMsg)
+		req := inference.Request{
+			Messages: a.Conv.Messages,
+			Tools:    a.ToolBox.Tools,
 		}
 
-		agentMsg, err := a.streamResponse(ctx, onDelta)
-		if err != nil {
-			return err
-		}
-
-		err = a.LLM.ToNativeMessage(agentMsg)
+		agentMsg, err := a.LLM.Generate(ctx, req)
 		if err != nil {
 			return err
 		}
 
 		a.Conv.Append(agentMsg)
 
-		toolResults := []message.ContentBlock{}
+		var toolResults []message.ContentBlock
 		for _, c := range agentMsg.Content {
-			switch block := c.(type) {
-			case message.ToolUseBlock:
-				result := a.executeTool(block.ID, block.Name, block.Input, onDelta)
+			if block, ok := c.(message.ToolUseBlock); ok {
+				result := a.executeTool(ctx, block.ID, block.Name, block.Input)
 				toolResults = append(toolResults, result)
 			}
 		}
 
 		if len(toolResults) == 0 {
-			readUserInput = true
-			count, err := a.LLM.CountTokens(ctx)
+			count, err := a.LLM.CountTokens(ctx, req)
 			if err != nil {
 				return err
 			}
@@ -109,71 +107,35 @@ func (a *Agent) Run(ctx context.Context, userInput string, onDelta func(string))
 			break
 		}
 
-		readUserInput = false
-
 		toolResultMsg := &message.Message{
 			Role:    message.UserRole,
 			Content: toolResults,
 		}
-
-		err = a.LLM.ToNativeMessage(toolResultMsg)
-		if err != nil {
-			return err
-		}
-
 		a.Conv.Append(toolResultMsg)
 	}
 	return nil
 }
 
-func (a *Agent) executeTool(id, name string, input json.RawMessage, onDelta func(string)) message.ContentBlock {
-	var result message.ContentBlock
-	if execDetails, isMCPTool := a.MCP.ToolMap[name]; isMCPTool {
-		result = a.executeMCPTool(id, name, input, execDetails)
-	} else {
-		result = a.executeLocalTool(id, name, input)
+func (a *Agent) executeTool(ctx context.Context, id, name string, input json.RawMessage) message.ContentBlock {
+	if a.MCP != nil && a.MCP.HasTool(name) {
+		var args map[string]any
+		if err := json.Unmarshal(input, &args); err != nil {
+			return message.NewToolResultBlock(id, name,
+				fmt.Sprintf("failed to parse tool input: %v", err), true)
+		}
+		if args == nil {
+			args = make(map[string]any)
+		}
+
+		result, err := a.MCP.Call(ctx, name, args)
+		if err != nil {
+			return message.NewToolResultBlock(id, name, err.Error(), true)
+		}
+
+		return message.NewToolResultBlock(id, name, fmt.Sprintf("%v", result), false)
 	}
 
-	isError := false
-	if toolResult, ok := result.(message.ToolResultBlock); ok && toolResult.IsError {
-		isError = true
-	}
-	a.Logger.Info("tool executed", "name", name, "error", isError)
-
-	return result
-}
-
-func (a *Agent) executeMCPTool(id, name string, input json.RawMessage, toolDetails mcp.ToolDetails) message.ContentBlock {
-	var args map[string]any
-
-	err := json.Unmarshal(input, &args)
-	if err != nil {
-		// TODO: No error handling here
-	}
-	if args == nil {
-		// This is kinda dumb?
-		args = make(map[string]any)
-	}
-
-	result, err := toolDetails.Server.Call(context.Background(), name, args)
-	if err != nil {
-		return message.NewToolResultBlock(id, name,
-			fmt.Sprintf("MCP tool %s execution error: %v", name, err), true)
-	}
-	if result == nil {
-		return message.NewToolResultBlock(id, name, "Tool executed successfully but returned no content", false)
-	}
-
-	// We have to do this,
-	// otherwise there will be an error saying
-	// "all messages must have non-empty content etc."
-	// even though we do have :)
-	content := fmt.Sprintf("%v", result)
-	if content == "" {
-		return message.NewToolResultBlock(id, name, "Tool executed successfully but returned empty content", false)
-	}
-
-	return message.NewToolResultBlock(id, name, content, false)
+	return a.executeLocalTool(id, name, input)
 }
 
 func (a *Agent) executeLocalTool(id, name string, input json.RawMessage) message.ContentBlock {
@@ -203,23 +165,3 @@ func (a *Agent) executeLocalTool(id, name string, input json.RawMessage) message
 	return message.NewToolResultBlock(id, name, string(toolOutput), false)
 }
 
-func (a *Agent) streamResponse(ctx context.Context, onDelta func(string)) (*message.Message, error) {
-	var streamErr error
-	var msg *message.Message
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-		msg, streamErr = a.LLM.RunInference(ctx, onDelta, true)
-	}()
-
-	wg.Wait()
-
-	if streamErr != nil {
-		return nil, streamErr
-	}
-
-	return msg, nil
-}
