@@ -26,12 +26,6 @@ curl -fsSL https://raw.githubusercontent.com/honganh1206/tinker/main/scripts/ins
 
 ## Usage
 
-### Start the persistence server
-
-```bash
-tinker serve
-```
-
 ### Run a task (headless)
 
 ```bash
