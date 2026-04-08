@@ -10,6 +10,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build frontend
+        run: npm ci && npm run build
+        working-directory: web
+
       - name: Setup Go 1.24.4
         uses: actions/setup-go@v4
         with:
