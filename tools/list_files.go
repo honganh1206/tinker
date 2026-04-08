@@ -4,9 +4,23 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/honganh1206/tinker/schema"
 )
+
+var skipDirs = map[string]bool{
+	".git":         true,
+	"node_modules": true,
+	"dist":         true,
+	".next":        true,
+	".nuxt":        true,
+	"__pycache__":  true,
+	".venv":        true,
+	"vendor":       true,
+	".cache":       true,
+	"build":        true,
+}
 
 var ListFilesDefinition = ToolDefinition{
 	Name:        "list_files",
@@ -41,9 +55,7 @@ func ListFiles(input ToolInput) (string, error) {
 			return err
 		}
 
-		// Adding this makes the code runs a lot faster.
-		// Should have thought of this sooner :)
-		if info.IsDir() && info.Name() == ".git" {
+		if info.IsDir() && (skipDirs[info.Name()] || strings.HasPrefix(info.Name(), ".")) {
 			return filepath.SkipDir
 		}
 
@@ -73,3 +85,4 @@ func ListFiles(input ToolInput) (string, error) {
 
 	return string(result), nil
 }
+
