@@ -2,28 +2,28 @@
 
 # ./scripts/build.sh (reads version from VERSION file)
 build() {
-    os=$1
-    app_name=$2
-    version=$3
-    arch=$4
-    # Shortened version of git commit hash
-    sha1=$(git rev-parse --short HEAD | tr -d '\n')
+  os=$1
+  app_name=$2
+  version=$3
+  arch=$4
+  # Shortened version of git commit hash
+  sha1=$(git rev-parse --short HEAD | tr -d '\n')
 
-    output_name="${app_name}_${version}_${os}_${arch}"
-    if [[ "$os" == "windows" ]]; then
-      output_name="${output_name}.exe"
-    fi
+  output_name="${app_name}_${version}_${os}_${arch}"
+  if [[ "$os" == "windows" ]]; then
+    output_name="${output_name}.exe"
+  fi
 
-    echo "Building for $os/$arch (version: $version) -> $output_name"
-    # TODO: On darwin/macos we need clang
-    # On windows gcc does not recognize -mthreads and it must be -pthread
-    CGO_ENABLED=1 GOOS=$os GOARCH=$arch go build -o "dist/${version}/${output_name}" -ldflags "-X github.com/honganh1206/tinker/cmd.Version=$version -X github.com/honganh1206/tinker/cmd.GitCommit=$sha1" main.go
+  echo "Building for $os/$arch (version: $version) -> $output_name"
+  # TODO: On darwin/macos we need clang
+  # On windows gcc does not recognize -mthreads and it must be -pthread
+  CGO_ENABLED=1 GOOS=$os GOARCH=$arch go build -o "dist/${version}/${output_name}" -ldflags "-X github.com/honganh1206/tinker/cmd.Version=$version -X github.com/honganh1206/tinker/cmd.GitCommit=$sha1" main.go
 }
 
 targets=(
-    # "darwin"
-    "linux"
-    # "windows"
+  # "darwin"
+  "linux"
+  # "windows"
 )
 app_name="tinker"
 

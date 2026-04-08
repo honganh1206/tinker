@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"testing"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/honganh1206/tinker/inference"
+	"github.com/honganh1206/tinker/logger"
 	"github.com/honganh1206/tinker/mcp"
 	"github.com/honganh1206/tinker/message"
 	"github.com/honganh1206/tinker/tools"
@@ -63,7 +63,7 @@ func createTestAgent() (*Agent, *mockLLMClient) {
 		Conversation: conv,
 		ToolBox:      toolBox,
 		MCPConfigs:   []mcp.ServerConfig{},
-		Logger:       slog.Default(),
+		Logger:       logger.NewDefaultLogger(),
 	})
 	return agent, mockLLM
 }

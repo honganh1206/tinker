@@ -1,0 +1,158 @@
+@import "tailwindcss";
+@import "./lemon.css";
+
+@layer base {
+  :root {
+    /* PostHog 3000 — Light mode */
+
+    /* Backgrounds */
+    --color-bg-primary: hsl(75, 14%, 95%);
+    --color-bg-surface-primary: #fff;
+    --color-bg-surface-secondary: hsl(70, 16%, 93%);
+
+    /* Text tiers */
+    --color-text-primary: hsl(0, 0%, 5%);
+    --color-text-secondary: hsl(0, 0%, 25%);
+    --color-text-tertiary: hsl(0, 0%, 40%);
+
+    /* Borders */
+    --color-border-primary: hsl(78, 13%, 85%);
+    --color-border-secondary: hsl(78, 13%, 88%);
+    --color-border-bold: hsl(69, 8%, 65%);
+
+    /* Accent — PostHog orange (light) */
+    --color-accent: hsl(19, 100%, 48%);
+    --color-accent-hover: hsl(19, 100%, 42%);
+    --color-accent-foreground: #fff;
+
+    /* Status */
+    --color-success: #388600;
+    --color-success-highlight: rgba(56, 134, 0, 0.1);
+    --color-success-border: rgba(56, 134, 0, 0.3);
+    --color-danger: #DB3707;
+    --color-danger-highlight: rgba(219, 55, 7, 0.1);
+    --color-danger-border: rgba(219, 55, 7, 0.3);
+    --color-warning: #F7A501;
+    --color-warning-highlight: rgba(247, 165, 1, 0.1);
+    --color-warning-border: rgba(247, 165, 1, 0.3);
+    --color-muted-highlight: rgba(0, 0, 0, 0.04);
+
+    /* Step trace accent colors */
+    --color-step-user: hsl(228, 100%, 56%);
+    --color-step-user-highlight: rgba(38, 70, 230, 0.1);
+    --color-step-user-border: rgba(38, 70, 230, 0.2);
+    --color-step-tool: hsl(39, 96%, 49%);
+    --color-step-tool-highlight: rgba(245, 166, 7, 0.1);
+    --color-step-tool-border: rgba(245, 166, 7, 0.2);
+
+    /* Neutral warm grey scale */
+    --color-neutral-100: hsl(70, 16%, 96%);
+    --color-neutral-200: hsl(70, 16%, 93%);
+    --color-neutral-300: hsl(78, 13%, 85%);
+    --color-neutral-400: hsl(69, 8%, 65%);
+    --color-neutral-500: hsl(0, 0%, 40%);
+    --color-neutral-600: hsl(0, 0%, 25%);
+    --color-neutral-700: hsl(0, 0%, 15%);
+    --color-neutral-800: hsl(0, 0%, 8%);
+    --color-neutral-900: hsl(0, 0%, 5%);
+
+    /* Radius — PostHog 3000 */
+    --radius: 0.375rem;
+    --radius-sm: 0.25rem;
+    --radius-lg: 0.625rem;
+    --radius-round: 9999px;
+
+    /* Shadows */
+    --shadow-elevation: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow-popup: 0 4px 16px rgba(0, 0, 0, 0.12);
+
+    /* Z-index */
+    --z-content: 1;
+    --z-popup: 10;
+    --z-modal: 20;
+    --z-toast: 30;
+
+    /* Font */
+    --font-sans: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --font-size-base: 14px;
+    --font-size-sm: 12px;
+    --font-size-xs: 11px;
+    --font-size-xxs: 10px;
+    --line-height-base: 1.5715;
+  }
+
+  [theme="dark"] {
+    /* PostHog 3000 — Dark mode */
+
+    /* Backgrounds */
+    --color-bg-primary: hsl(240, 8%, 8%);
+    --color-bg-surface-primary: hsl(235, 8%, 15%);
+    --color-bg-surface-secondary: hsl(240, 8%, 10%);
+
+    /* Text tiers */
+    --color-text-primary: hsl(0, 0%, 90%);
+    --color-text-secondary: hsl(0, 0%, 65%);
+    --color-text-tertiary: hsl(0, 0%, 50%);
+
+    /* Borders */
+    --color-border-primary: hsl(230, 8%, 20%);
+    --color-border-secondary: hsl(230, 8%, 16%);
+    --color-border-bold: hsl(230, 8%, 40%);
+
+    /* Accent — PostHog yellow (dark) */
+    --color-accent: hsl(43, 94%, 57%);
+    --color-accent-hover: hsl(43, 94%, 47%);
+    --color-accent-foreground: hsl(0, 0%, 5%);
+
+    /* Status */
+    --color-success: #388600;
+    --color-success-highlight: rgba(56, 134, 0, 0.1);
+    --color-success-border: rgba(56, 134, 0, 0.3);
+    --color-danger: #DB3707;
+    --color-danger-highlight: rgba(219, 55, 7, 0.1);
+    --color-danger-border: rgba(219, 55, 7, 0.3);
+    --color-warning: #F7A501;
+    --color-warning-highlight: rgba(247, 165, 1, 0.1);
+    --color-warning-border: rgba(247, 165, 1, 0.3);
+    --color-muted-highlight: rgba(255, 255, 255, 0.04);
+
+    /* Step trace accent colors */
+    --color-step-user: hsl(228, 100%, 66%);
+    --color-step-user-highlight: rgba(77, 110, 255, 0.1);
+    --color-step-user-border: rgba(77, 110, 255, 0.2);
+    --color-step-tool: hsl(43, 94%, 57%);
+    --color-step-tool-highlight: rgba(243, 195, 41, 0.1);
+    --color-step-tool-border: rgba(243, 195, 41, 0.2);
+
+    /* Neutral cool scale */
+    --color-neutral-100: hsl(240, 8%, 12%);
+    --color-neutral-200: hsl(240, 8%, 16%);
+    --color-neutral-300: hsl(230, 8%, 20%);
+    --color-neutral-400: hsl(230, 8%, 30%);
+    --color-neutral-500: hsl(0, 0%, 50%);
+    --color-neutral-600: hsl(0, 0%, 65%);
+    --color-neutral-700: hsl(0, 0%, 75%);
+    --color-neutral-800: hsl(0, 0%, 85%);
+    --color-neutral-900: hsl(0, 0%, 90%);
+
+    /* Shadows (darker in dark mode) */
+    --shadow-elevation: 0 1px 3px rgba(0, 0, 0, 0.24), 0 1px 2px rgba(0, 0, 0, 0.18);
+    --shadow-popup: 0 4px 16px rgba(0, 0, 0, 0.32);
+  }
+
+  * {
+    border-color: var(--color-border-primary);
+    box-sizing: border-box;
+  }
+
+  body {
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-base);
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+}

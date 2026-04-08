@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 
 	"github.com/honganh1206/tinker/inference"
+	"github.com/honganh1206/tinker/logger"
 	"github.com/honganh1206/tinker/mcp"
 	"github.com/honganh1206/tinker/message"
 	"github.com/honganh1206/tinker/tools"
@@ -17,7 +17,7 @@ type Agent struct {
 	ToolBox *tools.ToolBox
 	Conv    *message.Conversation
 	MCP     *mcp.Manager
-	Logger  *slog.Logger
+	Logger  *logger.Logger
 }
 
 type Config struct {
@@ -25,20 +25,20 @@ type Config struct {
 	Conversation *message.Conversation
 	ToolBox      *tools.ToolBox
 	MCPConfigs   []mcp.ServerConfig
-	Logger       *slog.Logger
+	Logger       *logger.Logger
 }
 
 func New(config *Config) *Agent {
-	logger := config.Logger
-	if logger == nil {
-		logger = slog.Default()
+	log := config.Logger
+	if log == nil {
+		log = logger.NewDefaultLogger()
 	}
 
 	a := &Agent{
 		LLM:     config.LLM,
 		ToolBox: config.ToolBox,
 		Conv:    config.Conversation,
-		Logger:  logger,
+		Logger:  log,
 	}
 
 	if len(config.MCPConfigs) > 0 {

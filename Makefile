@@ -30,3 +30,34 @@ run:
 build-linux:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BIN_DIR)/$(BINARY_UNIX) -v
 
+# Release helpers: make release-patch / release-minor / release-major
+VERSION_FILE=VERSION
+CURRENT_VERSION=$(shell cat $(VERSION_FILE))
+MAJOR=$(shell echo $(CURRENT_VERSION) | cut -d. -f1)
+MINOR=$(shell echo $(CURRENT_VERSION) | cut -d. -f2)
+PATCH=$(shell echo $(CURRENT_VERSION) | cut -d. -f3)
+
+release-patch:
+	$(eval NEW_VERSION=$(MAJOR).$(MINOR).$(shell echo $$(($(PATCH)+1))))
+	@echo "$(NEW_VERSION)" > $(VERSION_FILE)
+	git add $(VERSION_FILE)
+	git commit -m "release: v$(NEW_VERSION)"
+	git tag "v$(NEW_VERSION)"
+	git push && git push --tags
+
+release-minor:
+	$(eval NEW_VERSION=$(MAJOR).$(shell echo $$(($(MINOR)+1))).0)
+	@echo "$(NEW_VERSION)" > $(VERSION_FILE)
+	git add $(VERSION_FILE)
+	git commit -m "release: v$(NEW_VERSION)"
+	git tag "v$(NEW_VERSION)"
+	git push && git push --tags
+
+release-major:
+	$(eval NEW_VERSION=$(shell echo $$(($(MAJOR)+1))).0.0)
+	@echo "$(NEW_VERSION)" > $(VERSION_FILE)
+	git add $(VERSION_FILE)
+	git commit -m "release: v$(NEW_VERSION)"
+	git tag "v$(NEW_VERSION)"
+	git push && git push --tags
+

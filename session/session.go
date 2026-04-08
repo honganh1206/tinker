@@ -10,6 +10,7 @@ import (
 
 	"github.com/honganh1206/tinker/agent"
 	"github.com/honganh1206/tinker/inference"
+	"github.com/honganh1206/tinker/logger"
 	"github.com/honganh1206/tinker/mcp"
 	"github.com/honganh1206/tinker/message"
 	"github.com/honganh1206/tinker/tools"
@@ -27,7 +28,7 @@ type SessionConfig struct {
 
 func RunSession(ctx context.Context, cfg SessionConfig) (*SessionResult, error) {
 	startedAt := time.Now()
-	logger := NewLogger(os.Stderr, cfg.Verbose)
+	log := logger.NewLogger(os.Stderr, cfg.Verbose)
 
 	llm, err := inference.Init(ctx, cfg.LLMBase)
 	if err != nil {
@@ -53,7 +54,7 @@ func RunSession(ctx context.Context, cfg SessionConfig) (*SessionResult, error) 
 		Conversation: conv,
 		ToolBox:      toolBox,
 		MCPConfigs:   cfg.MCPConfigs,
-		Logger:       logger,
+		Logger:       log,
 	})
 
 	if err := a.StartMCP(ctx, cfg.MCPConfigs); err != nil {
@@ -63,24 +64,25 @@ func RunSession(ctx context.Context, cfg SessionConfig) (*SessionResult, error) 
 		defer a.MCP.Close()
 	}
 
-	logger.Info("running agent", "prompt", cfg.Prompt, "model", llm.Model(), "provider", llm.Provider())
+	log.Info("running agent", "prompt", cfg.Prompt, "model", llm.Model(), "provider", llm.Provider())
 	err = a.Run(ctx, cfg.Prompt)
 	if err != nil {
 		return resultFromError(conv, cfg.Prompt, startedAt, err, llm), nil
 	}
 
 	retryCount := 0
+	// TODO: Remove? cmd.go does not need it now
 	if cfg.VerifyCmd != "" {
 		for attempt := 0; attempt <= MaxRetries; attempt++ {
-			logger.Info("running verification", "cmd", cfg.VerifyCmd, "attempt", attempt+1)
+			log.Info("running verification", "cmd", cfg.VerifyCmd, "attempt", attempt+1)
 			output, verifyErr := runVerifyCmd(ctx, cfg.VerifyCmd)
 
 			if verifyErr == nil {
-				logger.Info("verification passed")
+				log.Info("verification passed")
 				break
 			}
 
-			logger.Warn("verification failed", "error", verifyErr, "output_len", len(output))
+			log.Warn("verification failed", "error", verifyErr, "output_len", len(output))
 			retryCount++
 
 			if attempt < MaxRetries {
@@ -88,7 +90,7 @@ func RunSession(ctx context.Context, cfg SessionConfig) (*SessionResult, error) 
 					"The verification command `%s` failed. Output:\n\n```\n%s\n```\n\nPlease fix the issues and try again.",
 					cfg.VerifyCmd, output,
 				)
-				logger.Info("retrying agent with failure context", "attempt", attempt+2)
+				log.Info("retrying agent with failure context", "attempt", attempt+2)
 				err = a.Run(ctx, retryPrompt)
 				if err != nil {
 					return resultFromError(conv, cfg.Prompt, startedAt, err, llm), nil

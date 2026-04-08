@@ -3,13 +3,16 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"os"
+	"io/fs"
+	"net/http"
 	"strings"
+	"time"
 
 	"github.com/honganh1206/tinker/inference"
 	"github.com/honganh1206/tinker/mcp"
-	"github.com/honganh1206/tinker/session"
+	"github.com/honganh1206/tinker/server"
 	"github.com/honganh1206/tinker/store"
+	"github.com/honganh1206/tinker/web"
 	"github.com/spf13/cobra"
 )
 
@@ -25,49 +28,6 @@ var (
 	GitCommit = "unknown"
 	BuildTime = "unknown"
 )
-
-func RunHandler(cmd *cobra.Command, args []string) error {
-	prompt, _ := cmd.Flags().GetString("prompt")
-	if prompt == "" && len(args) > 0 {
-		prompt = strings.Join(args, " ")
-	}
-	if prompt == "" {
-		return fmt.Errorf("prompt is required: tinker \"your prompt here\"")
-	}
-
-	verifyCmd, _ := cmd.Flags().GetString("verify-cmd")
-
-	provider := inference.ProviderName(llm.ProviderName)
-	if llm.ModelName == "" {
-		llm.ModelName = string(inference.GetDefaultModel(provider))
-	}
-	if llm.TokenLimit == 0 {
-		llm.TokenLimit = 8192
-	}
-
-	cfg := session.SessionConfig{
-		LLMBase:    llm,
-		MCPConfigs: mcpServerConfigs,
-		Prompt:     prompt,
-		VerifyCmd:  verifyCmd,
-		Verbose:    verbose,
-	}
-
-	result, err := session.RunSession(cmd.Context(), cfg)
-	if err != nil {
-		return err
-	}
-
-	// Save session to file store
-	s, err := store.NewFileStore("")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to save session: %v\n", err)
-	} else if err := s.Save(result); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to save session: %v\n", err)
-	}
-
-	return session.OutputResult(result)
-}
 
 func ModelHandler(cmd *cobra.Command, args []string) error {
 	provider := inference.ProviderName(llm.ProviderName)
@@ -153,6 +113,31 @@ func SessionsHandler(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func ServeHandler(cmd *cobra.Command, args []string) error {
+	addr, _ := cmd.Flags().GetString("addr")
+
+	s, err := store.NewFileStore("")
+	if err != nil {
+		return fmt.Errorf("failed to open session store: %w", err)
+	}
+
+	frontendFS, err := fs.Sub(web.Dist, "dist")
+	if err != nil {
+		return fmt.Errorf("failed to load frontend assets: %w", err)
+	}
+
+	srv := server.New(s, frontendFS)
+
+	httpServer := &http.Server{
+		Addr:              addr,
+		Handler:           srv.Mux(),
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
+	fmt.Printf("Dashboard running at http://localhost%s\n", addr)
+	return httpServer.ListenAndServe()
+}
+
 func NewCLI() *cobra.Command {
 	modelCmd := &cobra.Command{
 		Use:   "model",
@@ -192,18 +177,18 @@ Examples:
 		RunE:  SessionsHandler,
 	}
 
+	serveCmd := &cobra.Command{
+		Use:   "serve",
+		Short: "Start the dashboard web server",
+		Long:  `Start an HTTP server that serves the monitoring dashboard and session API.`,
+		RunE:  ServeHandler,
+	}
+	serveCmd.Flags().String("addr", ":11435", "Listen address for the dashboard server")
+
 	rootCmd := &cobra.Command{
 		Use:   "tinker",
 		Short: "A background coding agent",
-		Long: `Tinker is a background coding agent that runs headlessly.
-
-Usage:
-  tinker "fix the linting errors"
-  tinker --verify-cmd "go test ./..." "add unit tests for auth"
-  tinker --provider anthropic --model claude-4-sonnet "refactor the handler"
-
-Output is structured JSON on stdout. Logs go to stderr.`,
-		Args: cobra.ArbitraryArgs,
+		Long:  `Tinker is a background coding agent. Agent runs are triggered via channel messages (e.g., Discord).`,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if configs, err := mcp.LoadConfigs(); err == nil {
 				mcpServerConfigs = configs
@@ -212,17 +197,14 @@ Output is structured JSON on stdout. Logs go to stderr.`,
 				}
 			}
 		},
-		RunE: RunHandler,
 	}
 
 	rootCmd.PersistentFlags().StringVar(&llm.ProviderName, "provider", string(inference.AnthropicProvider), "Provider (anthropic, gemini)")
 	rootCmd.PersistentFlags().StringVar(&llm.ModelName, "model", "", "Model to use (depends on selected model)")
 	rootCmd.PersistentFlags().Int64Var(&llm.TokenLimit, "max-tokens", 0, "Maximum number of tokens in response")
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Enable verbose output")
-	rootCmd.Flags().StringP("prompt", "p", "", "The task prompt")
-	rootCmd.Flags().String("verify-cmd", "", "Verification command to run after agent completes")
 
-	rootCmd.AddCommand(versionCmd, modelCmd, mcpCmd, sessionsCmd)
+	rootCmd.AddCommand(versionCmd, modelCmd, mcpCmd, sessionsCmd, serveCmd)
 
 	return rootCmd
 }
