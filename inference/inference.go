@@ -90,5 +90,3 @@ func GetDefaultModel(provider ProviderName) ModelVersion {
 		return ""
 	}
 }
-
-

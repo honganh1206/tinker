@@ -30,6 +30,16 @@ type OutboundMessage struct {
 	ReplyTo  string `json:"replyTo,omitempty"`
 }
 
+// AgentRunCompleted mirrors the payload from the runner process.
+type AgentRunCompleted struct {
+	Channel      string `json:"channel"`
+	ChatID       string `json:"chatId"`
+	ReplyTo      string `json:"replyTo,omitempty"`
+	FinalMessage string `json:"finalMessage"`
+	Status       string `json:"status"`
+	SessionID    string `json:"sessionId"`
+}
+
 // Attachment represents a file or media attachment.
 type Attachment struct {
 	Type     string `json:"type"` // image, file, audio, v kideo

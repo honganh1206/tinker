@@ -85,4 +85,3 @@ func ListFiles(input ToolInput) (string, error) {
 
 	return string(result), nil
 }
-

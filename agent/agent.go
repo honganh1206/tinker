@@ -164,4 +164,3 @@ func (a *Agent) executeLocalTool(id, name string, input json.RawMessage) message
 
 	return message.NewToolResultBlock(id, name, string(toolOutput), false)
 }
-

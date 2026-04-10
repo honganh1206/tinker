@@ -15,11 +15,8 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/honganh1206/tinker/channel"
 	"github.com/honganh1206/tinker/eventbus"
-	"github.com/honganh1206/tinker/inference"
 	"github.com/honganh1206/tinker/logger"
-	"github.com/honganh1206/tinker/runner"
-	"github.com/honganh1206/tinker/session"
-	"github.com/honganh1206/tinker/store"
+	"github.com/honganh1206/tinker/router"
 )
 
 type DiscordChannel struct {
@@ -33,14 +30,12 @@ func main() {
 	var instanceName string
 	var botToken string
 	var listenAddr string
-	var provider string
-	var model string
+	var eventBusURL string
 
 	flag.StringVar(&instanceName, "instance", os.Getenv("INSTANCE_NAME"), "Tinker instance name")
 	flag.StringVar(&botToken, "bot-token", os.Getenv("DISCORD_BOT_TOKEN"), "Discord bot token")
 	flag.StringVar(&listenAddr, "addr", ":8080", "Listen address for health endpoint")
-	flag.StringVar(&provider, "provider", string(inference.AnthropicProvider), "LLM provider (anthropic, gemini)")
-	flag.StringVar(&model, "model", "", "LLM model name")
+	flag.StringVar(&eventBusURL, "event-bus-url", os.Getenv("NATS_LOCAL_PORT"), "Event bus URL")
 	flag.Parse()
 
 	if botToken == "" {
@@ -50,7 +45,7 @@ func main() {
 
 	log := logger.NewLogger(os.Stderr, true)
 
-	bus, err := eventbus.NewLocalEventBus()
+	bus, err := eventbus.NewNATSEventBus(eventBusURL)
 	if err != nil {
 		log.Error("failed to connect to event bus", "error", err)
 		os.Exit(1)
@@ -95,27 +90,9 @@ func main() {
 
 	go dc.handleOutbound(ctx)
 
-	// Start the agent runner
-	if model == "" {
-		model = string(inference.GetDefaultModel(inference.ProviderName(provider)))
-	}
-	sessionStore, err := store.NewFileStore("")
-	if err != nil {
-		log.Error("failed to create session store", "error", err)
-		os.Exit(1)
-	}
-	r := &runner.Runner{
+	r := &router.Router{
 		EventBus: bus,
-		Store:    sessionStore,
 		Log:      log,
-		SessionConfig: session.SessionConfig{
-			LLMBase: inference.ClientConfig{
-				ProviderName: provider,
-				ModelName:    model,
-				TokenLimit:   8192,
-			},
-			Verbose: true,
-		},
 	}
 	go r.Start(ctx)
 

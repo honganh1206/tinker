@@ -7,12 +7,12 @@ import (
 )
 
 const (
-	ToolNameBash       = "bash"
-	ToolNameReadFile   = "read_file"
-	ToolNameEditFile   = "edit_file"
-	ToolNameGrepSearch = "grep_search"
-	ToolNameListFiles  = "list_files"
-	ToolNameFinder     = "finder"
+	ToolNameBash        = "bash"
+	ToolNameReadFile    = "read_file"
+	ToolNameEditFile    = "edit_file"
+	ToolNameGrepSearch  = "grep_search"
+	ToolNameListFiles   = "list_files"
+	ToolNameFinder      = "finder"
 	ToolNameWebSearch   = "web_search"
 	ToolNameReadWebPage = "read_web_page"
 )

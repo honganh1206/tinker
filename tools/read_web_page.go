@@ -31,9 +31,9 @@ var ReadWebPageInputSchema = schema.Generate[ReadWebPageInput]()
 const maxBodyBytes = 200 * 1024
 
 var (
-	reHTMLTags    = regexp.MustCompile(`<script[^>]*>[\s\S]*?</script>|<style[^>]*>[\s\S]*?</style>|<[^>]+>`)
-	reWhitespace  = regexp.MustCompile(`[ \t]+`)
-	reBlankLines  = regexp.MustCompile(`\n{3,}`)
+	reHTMLTags   = regexp.MustCompile(`<script[^>]*>[\s\S]*?</script>|<style[^>]*>[\s\S]*?</style>|<[^>]+>`)
+	reWhitespace = regexp.MustCompile(`[ \t]+`)
+	reBlankLines = regexp.MustCompile(`\n{3,}`)
 )
 
 func ReadWebPage(input ToolInput) (string, error) {

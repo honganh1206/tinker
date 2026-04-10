@@ -35,7 +35,7 @@ const (
 	TopicChannelMessageRecv  = "channel.message.received"
 	TopicChannelMessageSend  = "channel.message.send"
 	// NOTE: Only needed when running multiple processes (NATs JetStream for communication)
-	TopicAgentRunCompleted   = "agent.run.completed"
+	TopicAgentRunCompleted = "agent.run.completed"
 )
 
 // NewEvent creates a new event with the current timestamp
