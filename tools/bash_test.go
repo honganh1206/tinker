@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -12,7 +13,7 @@ func TestBash_Success(t *testing.T) {
 	input := BashInput{Command: "echo 'hello world'"}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := Bash(ToolInput{RawInput: inputJSON})
+	result, err := RunBashTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "hello world", result)
@@ -22,7 +23,7 @@ func TestBash_EmptyCommand(t *testing.T) {
 	input := BashInput{Command: ""}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := Bash(ToolInput{RawInput: inputJSON})
+	result, err := RunBashTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Empty(t, result)
@@ -32,7 +33,7 @@ func TestBash_CommandWithExitCode(t *testing.T) {
 	input := BashInput{Command: "exit 1"}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := Bash(ToolInput{RawInput: inputJSON})
+	result, err := RunBashTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err) // Bash function doesn't return error for failed commands
 	assert.Contains(t, result, "Command failed with error:")
@@ -42,7 +43,7 @@ func TestBash_MultiLineOutput(t *testing.T) {
 	input := BashInput{Command: "echo -e 'line1\\nline2\\nline3'"}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := Bash(ToolInput{RawInput: inputJSON})
+	result, err := RunBashTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "line1\nline2\nline3", result)
@@ -52,7 +53,7 @@ func TestBash_CommandWithArguments(t *testing.T) {
 	input := BashInput{Command: "echo hello && echo world"}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := Bash(ToolInput{RawInput: inputJSON})
+	result, err := RunBashTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "hello\nworld", result)
@@ -61,7 +62,7 @@ func TestBash_CommandWithArguments(t *testing.T) {
 func TestBash_InvalidJSON(t *testing.T) {
 	invalidJSON := []byte(`{"command": invalid json}`)
 
-	result, err := Bash(ToolInput{RawInput: invalidJSON})
+	result, err := RunBashTool(context.Background(), invalidJSON)
 
 	assert.Error(t, err)
 	assert.Empty(t, result)
@@ -71,7 +72,7 @@ func TestBash_NonexistentCommand(t *testing.T) {
 	input := BashInput{Command: "nonexistentcommandthatdoesnotexist123"}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := Bash(ToolInput{RawInput: inputJSON})
+	result, err := RunBashTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err) // Bash function doesn't return error for failed commands
 	assert.Contains(t, result, "Command failed with error:")
@@ -81,7 +82,7 @@ func TestBash_WhitespaceOutput(t *testing.T) {
 	input := BashInput{Command: "echo '   hello world   '"}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := Bash(ToolInput{RawInput: inputJSON})
+	result, err := RunBashTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "hello world", result)
@@ -91,7 +92,7 @@ func TestBash_SpecialCharacters(t *testing.T) {
 	input := BashInput{Command: "echo 'special chars: $@#%^&*()[]{}|\\;:,.<>?'"}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := Bash(ToolInput{RawInput: inputJSON})
+	result, err := RunBashTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "special chars: $@#%^&*()[]{}|\\;:,.<>?", result)
@@ -102,18 +103,8 @@ func TestBashDefinition_Structure(t *testing.T) {
 	assert.Equal(t, "bash", BashDefinition.Name)
 	assert.NotEmpty(t, BashDefinition.Description)
 	assert.NotNil(t, BashDefinition.InputSchema)
-	assert.NotNil(t, BashDefinition.Function)
 }
 
-func TestBashDefinition_FunctionExecution(t *testing.T) {
-	input := BashInput{Command: "echo test"}
-	inputJSON, _ := json.Marshal(input)
-
-	result, err := BashDefinition.Function(ToolInput{RawInput: inputJSON})
-
-	assert.NoError(t, err)
-	assert.Equal(t, "test", result)
-}
 
 // Tests for BashInput struct
 func TestBashInput_JSONMarshaling(t *testing.T) {
@@ -173,7 +164,7 @@ func TestBash_VariousCommands(t *testing.T) {
 			input := BashInput{Command: tt.command}
 			inputJSON, _ := json.Marshal(input)
 
-			result, err := Bash(ToolInput{RawInput: inputJSON})
+			result, err := RunBashTool(context.Background(), inputJSON)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -195,7 +186,7 @@ func BenchmarkBash_SimpleCommand(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		Bash(ToolInput{RawInput: inputJSON})
+		RunBashTool(context.Background(), inputJSON)
 	}
 }
 
@@ -205,6 +196,6 @@ func BenchmarkBash_ComplexCommand(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		Bash(ToolInput{RawInput: inputJSON})
+		RunBashTool(context.Background(), inputJSON)
 	}
 }

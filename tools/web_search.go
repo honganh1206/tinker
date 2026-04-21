@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"fmt"
@@ -10,8 +11,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"github.com/honganh1206/tinker/schema"
 )
 
 //go:embed web_search.md
@@ -21,14 +20,14 @@ var WebSearchDefinition = ToolDefinition{
 	Name:        ToolNameWebSearch,
 	Description: webSearchPrompt,
 	InputSchema: WebSearchInputSchema,
-	Function:    WebSearch,
+	Function:    RunWebSearchTool,
 }
 
 type WebSearchInput struct {
 	Query string `json:"query" jsonschema_description:"The search query to look up on the web."`
 }
 
-var WebSearchInputSchema = schema.Generate[WebSearchInput]()
+var WebSearchInputSchema = generate[WebSearchInput]()
 
 type braveSearchResponse struct {
 	Web struct {
@@ -42,8 +41,8 @@ type braveSearchResult struct {
 	Description string `json:"description"`
 }
 
-func WebSearch(input ToolInput) (string, error) {
-	searchInput, err := schema.DecodeRaw[WebSearchInput](input.RawInput)
+func RunWebSearchTool(ctx context.Context, args json.RawMessage) (string, error) {
+	searchInput, err := decode[WebSearchInput](args)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse web_search input: %w", err)
 	}

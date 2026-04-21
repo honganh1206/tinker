@@ -1,13 +1,12 @@
 package tools
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
-
-	"github.com/honganh1206/tinker/schema"
 )
 
 //go:embed grep.md
@@ -17,7 +16,7 @@ var GrepSearchDefinition = ToolDefinition{
 	Name:        ToolNameGrepSearch,
 	Description: grepSearchPrompt,
 	InputSchema: GrepSearchInputSchema,
-	Function:    GrepSearch,
+	Function:    RunGrepSearchTool,
 }
 
 type GrepSearchInput struct {
@@ -25,33 +24,32 @@ type GrepSearchInput struct {
 	Directory string `json:"directory,omitempty" jsonschema_description:"Optional directory to scope the search."`
 }
 
-var GrepSearchInputSchema = schema.Generate[GrepSearchInput]()
+var GrepSearchInputSchema = generate[GrepSearchInput]()
 
-func GrepSearch(input ToolInput) (string, error) {
-	searchInput := GrepSearchInput{}
-	err := json.Unmarshal(input.RawInput, &searchInput)
+func RunGrepSearchTool(ctx context.Context, args json.RawMessage) (string, error) {
+	searchInput, err := decode[GrepSearchInput](args)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("parse grep_search input: %w", err)
 	}
 
 	if searchInput.Pattern == "" {
 		return "", fmt.Errorf("invalid pattern parameter")
 	}
 
-	args := []string{"rg", "--json", searchInput.Pattern}
+	searchArgs := []string{"rg", "--json", searchInput.Pattern}
 
 	if searchInput.Directory != "" {
-		args = append(args, searchInput.Directory)
+		searchArgs = append(searchArgs, searchInput.Directory)
 	}
 
-	cmd := exec.Command(args[0], args[1:]...)
+	cmd := exec.Command(searchArgs[0], searchArgs[1:]...)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		exitErr, ok := err.(*exec.ExitError)
 		if ok && exitErr.ExitCode() == 1 {
 			// Empty result
 			return "[]", nil
 		}
-		return "", fmt.Errorf("failed to run command '%s': %w (output: %s)", strings.Join(args, " "), err, output)
+		return "", fmt.Errorf("failed to run command '%s': %w (output: %s)", strings.Join(searchArgs, " "), err, output)
 	} else {
 		outputStr := strings.TrimSpace(string(output))
 		lines := strings.Split(outputStr, "\n")

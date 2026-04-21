@@ -1,12 +1,12 @@
 package tools
 
 import (
+	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
-
-	"github.com/honganh1206/tinker/schema"
 )
 
 //go:embed read_file.md
@@ -20,19 +20,19 @@ type ReadFileInput struct {
 	EndLine   int    `json:"end_line,omitempty" jsonschema_description:"The 1-indexed line number to stop reading at (inclusive). Defaults to start_line + 499."`
 }
 
-var ReadFileInputSchema = schema.Generate[ReadFileInput]()
+var ReadFileInputSchema = generate[ReadFileInput]()
 
 var ReadFileDefinition = ToolDefinition{
 	Name:        ToolNameReadFile,
 	Description: readFilePrompt,
 	InputSchema: ReadFileInputSchema,
-	Function:    ReadFile,
+	Function:    RunReadFileTool,
 }
 
-func ReadFile(input ToolInput) (string, error) {
-	readFileInput, err := schema.DecodeRaw[ReadFileInput](input.RawInput)
+func RunReadFileTool(ctx context.Context, args json.RawMessage) (string, error) {
+	readFileInput, err := decode[ReadFileInput](args)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse read_file input: %w", err)
+		return "", fmt.Errorf("parse read_file input: %w", err)
 	}
 
 	content, err := os.ReadFile(readFileInput.Path)

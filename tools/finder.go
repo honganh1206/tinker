@@ -1,12 +1,12 @@
 package tools
 
 import (
+	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
-
-	"github.com/honganh1206/tinker/schema"
 )
 
 //go:embed finder.md
@@ -16,17 +16,17 @@ var FinderDefinition = ToolDefinition{
 	Name:        ToolNameFinder,
 	Description: finderPrompt,
 	InputSchema: FinderInputSchema,
-	Function:    finderFunction,
+	Function:    RunFinderTool,
 }
 
 type FinderInput struct {
 	Query string `json:"query" jsonschema_description:"The search query describing what you're looking for in the codebase. Be specific and include context."`
 }
 
-var FinderInputSchema = schema.Generate[FinderInput]()
+var FinderInputSchema = generate[FinderInput]()
 
-func finderFunction(input ToolInput) (string, error) {
-	finderInput, err := schema.DecodeRaw[FinderInput](input.RawInput)
+func RunFinderTool(ctx context.Context, args json.RawMessage) (string, error) {
+	finderInput, err := decode[FinderInput](args)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse finder input: %w", err)
 	}

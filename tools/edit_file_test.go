@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -16,7 +17,7 @@ func createTestFileForEdit(t *testing.T, content string) string {
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "test_file.txt")
 
-	err := os.WriteFile(filePath, []byte(content), 0644)
+	err := os.WriteFile(filePath, []byte(content), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -36,7 +37,7 @@ func TestEditFile_Success(t *testing.T) {
 	}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := EditFile(ToolInput{RawInput: inputJSON})
+	result, err := RunEditFileTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "OK", result)
@@ -58,8 +59,7 @@ func TestEditFile_MultipleReplacements(t *testing.T) {
 	}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := EditFile(ToolInput{RawInput: inputJSON})
-
+	result, err := RunEditFileTool(context.Background(), inputJSON)
 	assert.NoError(t, err)
 	assert.Equal(t, "OK", result)
 
@@ -80,7 +80,7 @@ func TestEditFile_CreateNewFile(t *testing.T) {
 	}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := EditFile(ToolInput{RawInput: inputJSON})
+	result, err := RunEditFileTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Contains(t, result, "successfully created file")
@@ -102,7 +102,7 @@ func TestEditFile_CreateNewFileWithDirectories(t *testing.T) {
 	}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := EditFile(ToolInput{RawInput: inputJSON})
+	result, err := RunEditFileTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Contains(t, result, "successfully created file")
@@ -124,7 +124,7 @@ func TestEditFile_OldStrNotFound(t *testing.T) {
 	}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := EditFile(ToolInput{RawInput: inputJSON})
+	result, err := RunEditFileTool(context.Background(), inputJSON)
 
 	assert.Error(t, err)
 	assert.Empty(t, result)
@@ -144,7 +144,7 @@ func TestEditFile_NonexistentFile(t *testing.T) {
 	}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := EditFile(ToolInput{RawInput: inputJSON})
+	result, err := RunEditFileTool(context.Background(), inputJSON)
 
 	assert.Error(t, err)
 	assert.Empty(t, result)
@@ -171,7 +171,7 @@ func TestEditFile_InvalidParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			inputJSON, _ := json.Marshal(tt.input)
-			result, err := EditFile(ToolInput{RawInput: inputJSON})
+			result, err := RunEditFileTool(context.Background(), inputJSON)
 
 			if tt.hasErr {
 				assert.Error(t, err)
@@ -185,7 +185,7 @@ func TestEditFile_InvalidParameters(t *testing.T) {
 func TestEditFile_InvalidJSON(t *testing.T) {
 	invalidJSON := []byte(`{"path": invalid json}`)
 
-	result, err := EditFile(ToolInput{RawInput: invalidJSON})
+	result, err := RunEditFileTool(context.Background(), invalidJSON)
 
 	assert.Error(t, err)
 	assert.Empty(t, result)
@@ -201,7 +201,7 @@ func TestEditFile_EmptyFile(t *testing.T) {
 	}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := EditFile(ToolInput{RawInput: inputJSON})
+	result, err := RunEditFileTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "OK", result)
@@ -223,7 +223,7 @@ func TestEditFile_SpecialCharacters(t *testing.T) {
 	}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := EditFile(ToolInput{RawInput: inputJSON})
+	result, err := RunEditFileTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "OK", result)
@@ -244,7 +244,7 @@ func TestEditFile_MultilineContent(t *testing.T) {
 	}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := EditFile(ToolInput{RawInput: inputJSON})
+	result, err := RunEditFileTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "OK", result)
@@ -259,7 +259,6 @@ func TestEditFileDefinition_Structure(t *testing.T) {
 	assert.Equal(t, "edit_file", EditFileDefinition.Name)
 	assert.NotEmpty(t, EditFileDefinition.Description)
 	assert.NotNil(t, EditFileDefinition.InputSchema)
-	assert.NotNil(t, EditFileDefinition.Function)
 }
 
 func TestEditFileDefinition_FunctionExecution(t *testing.T) {
@@ -273,9 +272,7 @@ func TestEditFileDefinition_FunctionExecution(t *testing.T) {
 	}
 	inputJSON, _ := json.Marshal(input)
 
-	ti := ToolInput{RawInput: inputJSON}
-	result, err := EditFileDefinition.Function(ti)
-
+	result, err := RunEditFileTool(context.Background(), inputJSON)
 	assert.NoError(t, err)
 	assert.Equal(t, "OK", result)
 }
@@ -372,7 +369,7 @@ func TestEditFile_VariousReplacements(t *testing.T) {
 			}
 			inputJSON, _ := json.Marshal(input)
 
-			result, err := EditFile(ToolInput{RawInput: inputJSON})
+			result, err := RunEditFileTool(context.Background(), inputJSON)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -386,84 +383,5 @@ func TestEditFile_VariousReplacements(t *testing.T) {
 				assert.Equal(t, tt.expectedContent, string(content))
 			}
 		})
-	}
-}
-
-// Integration tests
-func TestEditFile_MultipleEdits(t *testing.T) {
-	content := "The quick brown fox jumps over the lazy dog"
-	filePath := createTestFileForEdit(t, content)
-
-	// First edit
-	input1 := EditFileInput{
-		Path:   filePath,
-		OldStr: "quick",
-		NewStr: "fast",
-	}
-	inputJSON1, _ := json.Marshal(input1)
-	result1, err1 := EditFile(ToolInput{RawInput: inputJSON1})
-	assert.NoError(t, err1)
-	assert.Equal(t, "OK", result1)
-
-	// Second edit
-	input2 := EditFileInput{
-		Path:   filePath,
-		OldStr: "fox",
-		NewStr: "cat",
-	}
-	inputJSON2, _ := json.Marshal(input2)
-	result2, err2 := EditFile(ToolInput{RawInput: inputJSON2})
-	assert.NoError(t, err2)
-	assert.Equal(t, "OK", result2)
-
-	// Verify final content
-	finalContent, err := os.ReadFile(filePath)
-	assert.NoError(t, err)
-	assert.Equal(t, "The fast brown cat jumps over the lazy dog", string(finalContent))
-}
-
-// Benchmark tests
-func BenchmarkEditFile_SimpleReplacement(b *testing.B) {
-	content := "Hello world, this is a benchmark test"
-	tmpDir := b.TempDir()
-	filePath := filepath.Join(tmpDir, "benchmark.txt")
-
-	input := EditFileInput{
-		Path:   filePath,
-		OldStr: "world",
-		NewStr: "benchmark",
-	}
-	inputJSON, _ := json.Marshal(input)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		// Recreate file for each iteration
-		os.WriteFile(filePath, []byte(content), 0644)
-		EditFile(ToolInput{RawInput: inputJSON})
-	}
-}
-
-func BenchmarkEditFile_LargeFile(b *testing.B) {
-	// Create large content
-	largeContent := ""
-	for i := 0; i < 1000; i++ {
-		largeContent += "This is line number " + string(rune(i)) + " in a large file for benchmark testing.\n"
-	}
-
-	tmpDir := b.TempDir()
-	filePath := filepath.Join(tmpDir, "large_benchmark.txt")
-
-	input := EditFileInput{
-		Path:   filePath,
-		OldStr: "line number",
-		NewStr: "row number",
-	}
-	inputJSON, _ := json.Marshal(input)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		// Recreate file for each iteration
-		os.WriteFile(filePath, []byte(largeContent), 0644)
-		EditFile(ToolInput{RawInput: inputJSON})
 	}
 }

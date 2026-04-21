@@ -8,16 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/honganh1206/tinker/inference"
 	"github.com/honganh1206/tinker/mcp"
-	"github.com/honganh1206/tinker/server"
-	"github.com/honganh1206/tinker/store"
 	"github.com/honganh1206/tinker/web"
 	"github.com/spf13/cobra"
 )
 
 var (
-	llm              inference.ClientConfig
 	verbose          bool
 	mcpServerCmd     string
 	mcpServerConfigs []mcp.ServerConfig
@@ -28,22 +24,6 @@ var (
 	GitCommit = "unknown"
 	BuildTime = "unknown"
 )
-
-func ModelHandler(cmd *cobra.Command, args []string) error {
-	provider := inference.ProviderName(llm.ProviderName)
-	models := inference.ListAvailableModels(provider)
-
-	if len(models) > 0 {
-		fmt.Printf("Available models for %s:\n", provider)
-		for _, model := range models {
-			fmt.Printf("  - %s\n", model)
-		}
-	} else {
-		fmt.Printf("For %s, specify your custom model name with the --model flag\n", provider)
-	}
-
-	return nil
-}
 
 func MCPHandler(cmd *cobra.Command, args []string) error {
 	if mcpServerCmd != "" {

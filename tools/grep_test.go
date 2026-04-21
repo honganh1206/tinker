@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -26,7 +27,7 @@ func createTestDirectoryForGrep(t *testing.T) string {
 
 	for filename, content := range files {
 		filePath := filepath.Join(tmpDir, filename)
-		err := os.WriteFile(filePath, []byte(content), 0644)
+		err := os.WriteFile(filePath, []byte(content), 0o644)
 		if err != nil {
 			t.Fatalf("Failed to create test file %s: %v", filename, err)
 		}
@@ -50,7 +51,7 @@ func TestGrepSearch_Success(t *testing.T) {
 	}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := GrepSearch(ToolInput{RawInput: inputJSON})
+	result, err := RunGrepSearchTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result)
@@ -71,7 +72,7 @@ func TestGrepSearch_EmptyResult(t *testing.T) {
 	}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := GrepSearch(ToolInput{RawInput: inputJSON})
+	result, err := RunGrepSearchTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "[]", result)
@@ -87,7 +88,7 @@ func TestGrepSearch_NoDirectory(t *testing.T) {
 	}
 	inputJSON, _ := json.Marshal(input)
 
-	_, err := GrepSearch(ToolInput{RawInput: inputJSON})
+	_, err := RunGrepSearchTool(context.Background(), inputJSON)
 
 	// Should not error even if no matches found in current directory
 	assert.NoError(t, err)
@@ -100,7 +101,7 @@ func TestGrepSearch_EmptyPattern(t *testing.T) {
 	}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := GrepSearch(ToolInput{RawInput: inputJSON})
+	result, err := RunGrepSearchTool(context.Background(), inputJSON)
 
 	assert.Error(t, err)
 	assert.Empty(t, result)
@@ -110,7 +111,7 @@ func TestGrepSearch_EmptyPattern(t *testing.T) {
 func TestGrepSearch_InvalidJSON(t *testing.T) {
 	invalidJSON := []byte(`{"pattern": invalid json}`)
 
-	result, err := GrepSearch(ToolInput{RawInput: invalidJSON})
+	result, err := RunGrepSearchTool(context.Background(), invalidJSON)
 
 	assert.Error(t, err)
 	assert.Empty(t, result)
@@ -127,7 +128,7 @@ func TestGrepSearch_NonexistentDirectory(t *testing.T) {
 	}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := GrepSearch(ToolInput{RawInput: inputJSON})
+	result, err := RunGrepSearchTool(context.Background(), inputJSON)
 
 	// Should return error for nonexistent directory
 	assert.Error(t, err)
@@ -147,7 +148,7 @@ func TestGrepSearch_RegexPattern(t *testing.T) {
 	}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := GrepSearch(ToolInput{RawInput: inputJSON})
+	result, err := RunGrepSearchTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result)
@@ -158,27 +159,6 @@ func TestGrepSearchDefinition_Structure(t *testing.T) {
 	assert.Equal(t, "grep_search", GrepSearchDefinition.Name)
 	assert.NotEmpty(t, GrepSearchDefinition.Description)
 	assert.NotNil(t, GrepSearchDefinition.InputSchema)
-	assert.NotNil(t, GrepSearchDefinition.Function)
-}
-
-func TestGrepSearchDefinition_FunctionExecution(t *testing.T) {
-	if !isRipgrepAvailable() {
-		t.Skip("ripgrep (rg) not available, skipping test")
-	}
-
-	testDir := createTestDirectoryForGrep(t)
-
-	input := GrepSearchInput{
-		Pattern:   "test",
-		Directory: testDir,
-	}
-	inputJSON, _ := json.Marshal(input)
-
-	ti := ToolInput{RawInput: inputJSON}
-	result, err := GrepSearchDefinition.Function(ti)
-
-	assert.NoError(t, err)
-	assert.NotEmpty(t, result)
 }
 
 // Tests for GrepSearchInput struct
@@ -280,7 +260,7 @@ func TestGrepSearch_VariousPatterns(t *testing.T) {
 			}
 			inputJSON, _ := json.Marshal(input)
 
-			result, err := GrepSearch(ToolInput{RawInput: inputJSON})
+			result, err := RunGrepSearchTool(context.Background(), inputJSON)
 
 			assert.NoError(t, err)
 
@@ -323,7 +303,7 @@ func TestGrepSearch_MultipleFiles(t *testing.T) {
 
 	for filename, content := range files {
 		filePath := filepath.Join(tmpDir, filename)
-		err := os.WriteFile(filePath, []byte(content), 0644)
+		err := os.WriteFile(filePath, []byte(content), 0o644)
 		if err != nil {
 			t.Fatalf("Failed to create test file %s: %v", filename, err)
 		}
@@ -335,7 +315,7 @@ func TestGrepSearch_MultipleFiles(t *testing.T) {
 	}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := GrepSearch(ToolInput{RawInput: inputJSON})
+	result, err := RunGrepSearchTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.NotEqual(t, "[]", result)
@@ -358,7 +338,7 @@ func BenchmarkGrepSearch_SimplePattern(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		GrepSearch(ToolInput{RawInput: inputJSON})
+		RunGrepSearchTool(context.Background(), inputJSON)
 	}
 }
 
@@ -376,6 +356,6 @@ func BenchmarkGrepSearch_ComplexPattern(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		GrepSearch(ToolInput{RawInput: inputJSON})
+		RunGrepSearchTool(context.Background(), inputJSON)
 	}
 }

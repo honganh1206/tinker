@@ -22,8 +22,8 @@ type route struct {
 	remoteName string
 }
 
-// ExposedTool represents an MCP tool exposed to the agent with a prefixed name.
-type ExposedTool struct {
+// MCPTool represents an MCP tool exposed to the agent with a prefixed name.
+type MCPTool struct {
 	Name        string
 	Description string
 	InputSchema *jsonschema.Schema
@@ -205,8 +205,8 @@ func (s *server) close() error {
 	return firstErr
 }
 
-func (m *Manager) Start(ctx context.Context, configs []ServerConfig) ([]ExposedTool, error) {
-	var exposed []ExposedTool
+func (m *Manager) Start(ctx context.Context, configs []ServerConfig) ([]MCPTool, error) {
+	var exposed []MCPTool
 
 	for _, cfg := range configs {
 		parts := strings.Fields(cfg.Command)
@@ -228,7 +228,7 @@ func (m *Manager) Start(ctx context.Context, configs []ServerConfig) ([]ExposedT
 		for _, t := range tools {
 			prefixed := fmt.Sprintf("%s_%s", cfg.ID, t.Name)
 			m.routes[prefixed] = route{srv: srv, remoteName: t.Name}
-			exposed = append(exposed, ExposedTool{
+			exposed = append(exposed, MCPTool{
 				Name:        prefixed,
 				Description: t.Description,
 				InputSchema: t.InputSchema,

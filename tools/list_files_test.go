@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -30,13 +31,13 @@ func createTestDirectoryForList(t *testing.T) string {
 		dir := filepath.Dir(fullPath)
 
 		// Create directory if it doesn't exist
-		err := os.MkdirAll(dir, 0755)
+		err := os.MkdirAll(dir, 0o755)
 		if err != nil {
 			t.Fatalf("Failed to create directory %s: %v", dir, err)
 		}
 
 		// Create file
-		err = os.WriteFile(fullPath, []byte(content), 0644)
+		err = os.WriteFile(fullPath, []byte(content), 0o644)
 		if err != nil {
 			t.Fatalf("Failed to create test file %s: %v", fullPath, err)
 		}
@@ -68,12 +69,12 @@ func createTestDirectoryWithGit(t *testing.T) string {
 		fullPath := filepath.Join(tmpDir, path)
 		dir := filepath.Dir(fullPath)
 
-		err := os.MkdirAll(dir, 0755)
+		err := os.MkdirAll(dir, 0o755)
 		if err != nil {
 			t.Fatalf("Failed to create directory %s: %v", dir, err)
 		}
 
-		err = os.WriteFile(fullPath, []byte(content), 0644)
+		err = os.WriteFile(fullPath, []byte(content), 0o644)
 		if err != nil {
 			t.Fatalf("Failed to create test file %s: %v", fullPath, err)
 		}
@@ -89,7 +90,7 @@ func TestListFiles_Success(t *testing.T) {
 	input := ListFilesInput{Path: testDir}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ListFiles(ToolInput{RawInput: inputJSON})
+	result, err := RunListFilesTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result)
@@ -118,7 +119,7 @@ func TestListFiles_EmptyDirectory(t *testing.T) {
 	input := ListFilesInput{Path: emptyDir}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ListFiles(ToolInput{RawInput: inputJSON})
+	result, err := RunListFilesTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "null", result)
@@ -128,7 +129,7 @@ func TestListFiles_NoPathProvided(t *testing.T) {
 	input := ListFilesInput{}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ListFiles(ToolInput{RawInput: inputJSON})
+	result, err := RunListFilesTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result)
@@ -143,7 +144,7 @@ func TestListFiles_NonexistentDirectory(t *testing.T) {
 	input := ListFilesInput{Path: "/nonexistent/directory"}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ListFiles(ToolInput{RawInput: inputJSON})
+	result, err := RunListFilesTool(context.Background(), inputJSON)
 
 	assert.Error(t, err)
 	assert.Empty(t, result)
@@ -155,7 +156,7 @@ func TestListFiles_GitDirectorySkipped(t *testing.T) {
 	input := ListFilesInput{Path: testDir}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ListFiles(ToolInput{RawInput: inputJSON})
+	result, err := RunListFilesTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 
@@ -185,7 +186,7 @@ func TestListFiles_DirectoryIndicator(t *testing.T) {
 	input := ListFilesInput{Path: testDir}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ListFiles(ToolInput{RawInput: inputJSON})
+	result, err := RunListFilesTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 
@@ -206,7 +207,7 @@ func TestListFiles_DirectoryIndicator(t *testing.T) {
 func TestListFiles_InvalidJSON(t *testing.T) {
 	invalidJSON := []byte(`{"path": invalid json}`)
 
-	result, err := ListFiles(ToolInput{RawInput: invalidJSON})
+	result, err := RunListFilesTool(context.Background(), invalidJSON)
 
 	assert.Error(t, err)
 	assert.Empty(t, result)
@@ -218,7 +219,7 @@ func TestListFiles_RelativePaths(t *testing.T) {
 	input := ListFilesInput{Path: testDir}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ListFiles(ToolInput{RawInput: inputJSON})
+	result, err := RunListFilesTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 
@@ -237,25 +238,6 @@ func TestListFilesDefinition_Structure(t *testing.T) {
 	assert.Equal(t, "list_files", ListFilesDefinition.Name)
 	assert.NotEmpty(t, ListFilesDefinition.Description)
 	assert.NotNil(t, ListFilesDefinition.InputSchema)
-	assert.NotNil(t, ListFilesDefinition.Function)
-}
-
-func TestListFilesDefinition_FunctionExecution(t *testing.T) {
-	testDir := createTestDirectoryForList(t)
-
-	input := ListFilesInput{Path: testDir}
-	inputJSON, _ := json.Marshal(input)
-
-	ti := ToolInput{RawInput: inputJSON}
-	result, err := ListFilesDefinition.Function(ti)
-
-	assert.NoError(t, err)
-	assert.NotEmpty(t, result)
-
-	var files []string
-	err = json.Unmarshal([]byte(result), &files)
-	assert.NoError(t, err)
-	assert.Greater(t, len(files), 0)
 }
 
 // Tests for ListFilesInput struct
@@ -310,7 +292,7 @@ func TestListFiles_VariousDirectoryStructures(t *testing.T) {
 			name: "simple directory",
 			setupFunc: func(t *testing.T) string {
 				dir := t.TempDir()
-				os.WriteFile(filepath.Join(dir, "simple.txt"), []byte("content"), 0644)
+				os.WriteFile(filepath.Join(dir, "simple.txt"), []byte("content"), 0o644)
 				return dir
 			},
 			expectedFiles:   []string{"simple.txt"},
@@ -320,8 +302,8 @@ func TestListFiles_VariousDirectoryStructures(t *testing.T) {
 			name: "nested directories",
 			setupFunc: func(t *testing.T) string {
 				dir := t.TempDir()
-				os.MkdirAll(filepath.Join(dir, "nested", "deep"), 0755)
-				os.WriteFile(filepath.Join(dir, "nested", "deep", "file.txt"), []byte("content"), 0644)
+				os.MkdirAll(filepath.Join(dir, "nested", "deep"), 0o755)
+				os.WriteFile(filepath.Join(dir, "nested", "deep", "file.txt"), []byte("content"), 0o644)
 				return dir
 			},
 			expectedFiles:   []string{"nested/", "nested/deep/", "nested/deep/file.txt"},
@@ -331,9 +313,9 @@ func TestListFiles_VariousDirectoryStructures(t *testing.T) {
 			name: "mixed files and directories",
 			setupFunc: func(t *testing.T) string {
 				dir := t.TempDir()
-				os.WriteFile(filepath.Join(dir, "file1.txt"), []byte("content1"), 0644)
-				os.MkdirAll(filepath.Join(dir, "subdir"), 0755)
-				os.WriteFile(filepath.Join(dir, "subdir", "file2.txt"), []byte("content2"), 0644)
+				os.WriteFile(filepath.Join(dir, "file1.txt"), []byte("content1"), 0o644)
+				os.MkdirAll(filepath.Join(dir, "subdir"), 0o755)
+				os.WriteFile(filepath.Join(dir, "subdir", "file2.txt"), []byte("content2"), 0o644)
 				return dir
 			},
 			expectedFiles:   []string{"file1.txt", "subdir/", "subdir/file2.txt"},
@@ -348,7 +330,7 @@ func TestListFiles_VariousDirectoryStructures(t *testing.T) {
 			input := ListFilesInput{Path: testDir}
 			inputJSON, _ := json.Marshal(input)
 
-			result, err := ListFiles(ToolInput{RawInput: inputJSON})
+			result, err := RunListFilesTool(context.Background(), inputJSON)
 
 			assert.NoError(t, err)
 
@@ -394,17 +376,17 @@ func TestListFiles_ComplexDirectoryStructure(t *testing.T) {
 		fullPath := filepath.Join(tmpDir, path)
 		dir := filepath.Dir(fullPath)
 
-		err := os.MkdirAll(dir, 0755)
+		err := os.MkdirAll(dir, 0o755)
 		assert.NoError(t, err)
 
-		err = os.WriteFile(fullPath, []byte("content"), 0644)
+		err = os.WriteFile(fullPath, []byte("content"), 0o644)
 		assert.NoError(t, err)
 	}
 
 	input := ListFilesInput{Path: tmpDir}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ListFiles(ToolInput{RawInput: inputJSON})
+	result, err := RunListFilesTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 
@@ -436,7 +418,7 @@ func BenchmarkListFiles_SmallDirectory(b *testing.B) {
 	dir := b.TempDir()
 	for i := 0; i < 10; i++ {
 		filename := filepath.Join(dir, "file"+string(rune('0'+i))+".txt")
-		os.WriteFile(filename, []byte("content"), 0644)
+		os.WriteFile(filename, []byte("content"), 0o644)
 	}
 
 	input := ListFilesInput{Path: dir}
@@ -444,7 +426,7 @@ func BenchmarkListFiles_SmallDirectory(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ListFiles(ToolInput{RawInput: inputJSON})
+		RunListFilesTool(context.Background(), inputJSON)
 	}
 }
 
@@ -455,11 +437,11 @@ func BenchmarkListFiles_LargeDirectory(b *testing.B) {
 	// Create multiple subdirectories with files
 	for i := 0; i < 5; i++ {
 		subdir := filepath.Join(dir, "subdir"+string(rune('0'+i)))
-		os.MkdirAll(subdir, 0755)
+		os.MkdirAll(subdir, 0o755)
 
 		for j := 0; j < 20; j++ {
 			filename := filepath.Join(subdir, "file"+string(rune('0'+j))+".txt")
-			os.WriteFile(filename, []byte("content"), 0644)
+			os.WriteFile(filename, []byte("content"), 0o644)
 		}
 	}
 
@@ -468,6 +450,6 @@ func BenchmarkListFiles_LargeDirectory(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ListFiles(ToolInput{RawInput: inputJSON})
+		RunListFilesTool(context.Background(), inputJSON)
 	}
 }

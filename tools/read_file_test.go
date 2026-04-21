@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -38,7 +39,7 @@ func TestReadFile_Success(t *testing.T) {
 	input := ReadFileInput{Path: filePath}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ReadFile(ToolInput{RawInput: inputJSON})
+	result, err := RunReadFileTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Contains(t, result, "1: This is test content")
@@ -48,7 +49,7 @@ func TestReadFile_NonexistentFile(t *testing.T) {
 	input := ReadFileInput{Path: "/nonexistent/file.txt"}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ReadFile(ToolInput{RawInput: inputJSON})
+	result, err := RunReadFileTool(context.Background(), inputJSON)
 
 	assert.Error(t, err)
 	assert.Empty(t, result)
@@ -61,7 +62,7 @@ func TestReadFile_EmptyFile(t *testing.T) {
 	input := ReadFileInput{Path: filePath}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ReadFile(ToolInput{RawInput: inputJSON})
+	result, err := RunReadFileTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Contains(t, result, "1: ")
@@ -74,7 +75,7 @@ func TestReadFile_MultilineFile(t *testing.T) {
 	input := ReadFileInput{Path: filePath}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ReadFile(ToolInput{RawInput: inputJSON})
+	result, err := RunReadFileTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Contains(t, result, "1: Line 1")
@@ -93,7 +94,7 @@ func TestReadFile_LineRange(t *testing.T) {
 	input := ReadFileInput{Path: filePath, StartLine: 5, EndLine: 10}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ReadFile(ToolInput{RawInput: inputJSON})
+	result, err := RunReadFileTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Contains(t, result, "5: Line 5")
@@ -114,7 +115,7 @@ func TestReadFile_DefaultCap(t *testing.T) {
 	input := ReadFileInput{Path: filePath}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ReadFile(ToolInput{RawInput: inputJSON})
+	result, err := RunReadFileTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Contains(t, result, "1: Line 1")
@@ -131,7 +132,7 @@ func TestReadFile_StartLineBeyondEnd(t *testing.T) {
 	input := ReadFileInput{Path: filePath, StartLine: 100}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ReadFile(ToolInput{RawInput: inputJSON})
+	result, err := RunReadFileTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Contains(t, result, "beyond end of file")
@@ -144,7 +145,7 @@ func TestReadFile_EndLineBeyondFileLength(t *testing.T) {
 	input := ReadFileInput{Path: filePath, StartLine: 2, EndLine: 100}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ReadFile(ToolInput{RawInput: inputJSON})
+	result, err := RunReadFileTool(context.Background(), inputJSON)
 
 	assert.NoError(t, err)
 	assert.Contains(t, result, "2: Line 2")
@@ -155,7 +156,7 @@ func TestReadFile_EndLineBeyondFileLength(t *testing.T) {
 func TestReadFile_InvalidJSON(t *testing.T) {
 	invalidJSON := []byte(`{"invalid": json}`)
 
-	_, err := ReadFile(ToolInput{RawInput: invalidJSON})
+	_, err := RunReadFileTool(context.Background(), invalidJSON)
 
 	assert.Error(t, err)
 }
@@ -166,7 +167,7 @@ func TestReadFile_Directory(t *testing.T) {
 	input := ReadFileInput{Path: dirPath}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ReadFile(ToolInput{RawInput: inputJSON})
+	result, err := RunReadFileTool(context.Background(), inputJSON)
 
 	assert.Error(t, err)
 	assert.Empty(t, result)
@@ -187,7 +188,7 @@ func TestReadFile_PermissionDenied(t *testing.T) {
 	input := ReadFileInput{Path: filePath}
 	inputJSON, _ := json.Marshal(input)
 
-	result, err := ReadFile(ToolInput{RawInput: inputJSON})
+	result, err := RunReadFileTool(context.Background(), inputJSON)
 
 	assert.Error(t, err)
 	assert.Empty(t, result)
@@ -197,20 +198,6 @@ func TestReadFileDefinition_Structure(t *testing.T) {
 	assert.Equal(t, "read_file", ReadFileDefinition.Name)
 	assert.NotEmpty(t, ReadFileDefinition.Description)
 	assert.NotNil(t, ReadFileDefinition.InputSchema)
-	assert.NotNil(t, ReadFileDefinition.Function)
-}
-
-func TestReadFileDefinition_FunctionExecution(t *testing.T) {
-	content := "Test content for definition"
-	filePath := createTestFile(t, content)
-
-	input := ReadFileInput{Path: filePath}
-	inputJSON, _ := json.Marshal(input)
-
-	result, err := ReadFileDefinition.Function(ToolInput{RawInput: inputJSON})
-
-	assert.NoError(t, err)
-	assert.Contains(t, result, "1: Test content for definition")
 }
 
 func TestReadFileInput_JSONMarshaling(t *testing.T) {
@@ -244,7 +231,7 @@ func BenchmarkReadFile_SmallFile(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ReadFile(ToolInput{RawInput: inputJSON})
+		RunReadFileTool(context.Background(), inputJSON)
 	}
 }
 
@@ -264,6 +251,6 @@ func BenchmarkReadFile_LargeFile(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ReadFile(ToolInput{RawInput: inputJSON})
+		RunReadFileTool(context.Background(), inputJSON)
 	}
 }

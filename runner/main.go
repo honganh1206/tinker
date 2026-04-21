@@ -4,32 +4,30 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
+	"github.com/honganh1206/tinker/agent"
 	"github.com/honganh1206/tinker/channel"
 	"github.com/honganh1206/tinker/eventbus"
-	"github.com/honganh1206/tinker/inference"
 	"github.com/honganh1206/tinker/logger"
-	"github.com/honganh1206/tinker/session"
-	"github.com/honganh1206/tinker/store"
+	"github.com/honganh1206/tinker/model"
+	"github.com/honganh1206/tinker/storage"
+	"github.com/honganh1206/tinker/tools"
 )
 
 func main() {
 	var provider string
-	var model string
+	var modelName string
 	var eventBusURL string
 
-	flag.StringVar(&provider, "provider", string(inference.AnthropicProvider), "LLM provider (anthropic, gemini)")
-	flag.StringVar(&model, "model", "", "LLM model name")
-
+	flag.StringVar(&provider, "provider", "anthropic", "LLM provider (anthropic, gemini)")
+	flag.StringVar(&modelName, "model", string(model.Claude46Sonnet), "LLM model name")
 	flag.StringVar(&eventBusURL, "event-bus-url", os.Getenv("NATS_LOCAL_PORT"), "Event bus URL")
 	flag.Parse()
-
-	if model == "" {
-		model = string(inference.GetDefaultModel(inference.ProviderName(provider)))
-	}
 
 	log := logger.NewLogger(os.Stderr, true)
 	log.Info("runner starting...")
@@ -42,13 +40,11 @@ func main() {
 		log.Error("failed to connect to event bus", "error", err)
 		os.Exit(1)
 	}
-	defer bus.Close()
-
-	ss, err := store.NewFileStore("")
-	if err != nil {
-		log.Error("failed to create file store", "error", err)
-		os.Exit(1)
-	}
+	defer func() {
+		if err := bus.Close(); err != nil {
+			log.Error("failed to close event bus", "error", err)
+		}
+	}()
 
 	inboundCh, err := bus.Subscribe(ctx, eventbus.TopicChannelMessageRecv)
 	if err != nil {
@@ -56,7 +52,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Info("runner listening for messages", "provider", provider, "model", model)
+	log.Info("runner listening for messages", "provider", provider, "model", modelName)
 
 	for {
 		select {
@@ -85,33 +81,18 @@ func main() {
 				"sender", msg.SenderName,
 				"text", truncateForLog(msg.Text, 80))
 
-			cfg := session.SessionConfig{
-				LLMBase: inference.ClientConfig{
-					ProviderName: provider,
-					ModelName:    model,
-					TokenLimit:   8192,
-				},
-				Prompt:  msg.Text,
-				Verbose: true,
-			}
-
-			result, err := session.RunSession(eventCtx, cfg)
+			finalMessage, err := handleMessage(eventCtx, model.ModelVersion(modelName), msg.Text, log)
 			if err != nil {
-				log.Error("agent session failed", "error", err)
+				log.Error("agent run failed", "error", err)
 				continue
-			}
-
-			if err := ss.Save(result); err != nil {
-				log.Error("failed to save session", "error", err)
 			}
 
 			completed := channel.AgentRunCompleted{
 				Channel:      msg.Channel,
 				ChatID:       msg.ChatID,
 				ReplyTo:      msg.Metadata["messageId"],
-				FinalMessage: result.FinalMessage,
-				Status:       string(result.Status),
-				SessionID:    result.SessionID,
+				FinalMessage: finalMessage,
+				Status:       "success",
 			}
 
 			doneEvent, err := eventbus.NewEvent(eventbus.TopicAgentRunCompleted, event.Metadata, completed)
@@ -125,6 +106,64 @@ func main() {
 			}
 		}
 	}
+}
+
+func handleMessage(ctx context.Context, modelVersion model.ModelVersion, prompt string, log *logger.Logger) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	dbPath := filepath.Join(home, ".tinker", "test.db")
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
+		return "", err
+	}
+	db, err := storage.NewContextDB(dbPath)
+	if err != nil {
+		return "", err
+	}
+
+	llm, err := model.NewClaudeModel(modelVersion)
+	if err != nil {
+		if err = db.Close(); err != nil {
+			return "", fmt.Errorf("closing db: %w", err)
+		}
+		return "", err
+	}
+
+	cw, err := model.NewContextWindow(db, llm, "")
+	if err != nil {
+		if err = db.Close(); err != nil {
+			return "", fmt.Errorf("closing db: %w", err)
+		}
+		return "", err
+	}
+	defer cw.Close()
+
+	builtinTools := []tools.ToolDefinition{
+		tools.ReadFileDefinition,
+		tools.ListFilesDefinition,
+		tools.EditFileDefinition,
+		tools.GrepSearchDefinition,
+		tools.FinderDefinition,
+		tools.BashDefinition,
+		tools.WebSearchDefinition,
+		tools.ReadWebPageDefinition,
+	}
+
+	for _, t := range builtinTools {
+		if err := cw.RegisterTool(t); err != nil {
+			return "", err
+		}
+	}
+
+	a := agent.New(&agent.Config{
+		ContextWindow: cw,
+		Logger:        log,
+	})
+
+	a.CW.SetSystemPrompt(model.SystemPrompt())
+
+	return a.Run(ctx, prompt)
 }
 
 func truncateForLog(s string, n int) string {

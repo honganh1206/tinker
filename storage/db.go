@@ -1,0 +1,75 @@
+package storage
+
+import (
+	"database/sql"
+	"fmt"
+
+	_ "github.com/mattn/go-sqlite3"
+)
+
+// NewContextDB opens a database to store context window in.
+// We call this before creating context windows.
+// NOTE: LLM conversations are stored in SQLite.
+// If you don't care about persistent storage for your context,
+// just specify ":memory:" as your database path,
+// which creates a sqlite database in RAM instead of disk.
+func NewContextDB(dbpath string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", dbpath)
+	if err != nil {
+		return nil, fmt.Errorf("open db: %w", err)
+	}
+	if err = InitializeSchema(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("init schema: %w", err)
+	}
+
+	return db, nil
+}
+
+// InitializeSchema ensures the contexts and records tables and indexes exist
+func InitializeSchema(db *sql.DB) error {
+	const baseTables = `
+		CREATE TABLE IF NOT EXISTS contexts (
+			id         TEXT PRIMARY KEY,
+			name       TEXT NOT NULL,
+			start_time DATETIME NOT NULL
+		);
+
+		CREATE TABLE IF NOT EXISTS records (
+			id         INTEGER PRIMARY KEY AUTOINCREMENT,
+			context_id TEXT NOT NULL,
+			ts         DATETIME NOT NULL,
+			source     INTEGER NOT NULL,
+			content    TEXT NOT NULL,
+			live       BOOLEAN NOT NULL,
+			est_tokens INTEGER NOT NULL,
+			FOREIGN KEY (context_id) REFERENCES contexts(id) ON DELETE CASCADE
+		);
+
+		CREATE TABLE IF NOT EXISTS context_tools (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			context_id TEXT NOT NULL,
+			tool_name TEXT NOT NULL,
+			created_at DATETIME NOT NULL,
+			FOREIGN KEY (context_id) REFERENCES contexts(id) ON DELETE CASCADE,
+			UNIQUE(context_id, tool_name)
+		);
+`
+
+	_, err := db.Exec(baseTables)
+	if err != nil {
+		return fmt.Errorf("create base tables: %w", err)
+	}
+
+	const indexes = `
+		CREATE INDEX IF NOT EXISTS idx_context_live ON records(context_id, live);
+		CREATE INDEX IF NOT EXISTS idx_context_ts ON records(context_id, ts);
+		CREATE INDEX IF NOT EXISTS idx_context_tools_context ON context_tools(context_id);
+`
+	_, err = db.Exec(indexes)
+	if err != nil {
+		return fmt.Errorf("create indexes: %w", err)
+	}
+
+	return nil
+}

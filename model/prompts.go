@@ -1,4 +1,4 @@
-package prompts
+package model
 
 import (
 	_ "embed"

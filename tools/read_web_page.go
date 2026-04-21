@@ -1,15 +1,15 @@
 package tools
 
 import (
+	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/honganh1206/tinker/schema"
 )
 
 //go:embed read_web_page.md
@@ -19,14 +19,14 @@ var ReadWebPageDefinition = ToolDefinition{
 	Name:        ToolNameReadWebPage,
 	Description: readWebPagePrompt,
 	InputSchema: ReadWebPageInputSchema,
-	Function:    ReadWebPage,
+	Function:    RunReadWebPageTool,
 }
 
 type ReadWebPageInput struct {
 	URL string `json:"url" jsonschema_description:"The URL of the web page to fetch and read."`
 }
 
-var ReadWebPageInputSchema = schema.Generate[ReadWebPageInput]()
+var ReadWebPageInputSchema = generate[ReadWebPageInput]()
 
 const maxBodyBytes = 200 * 1024
 
@@ -36,8 +36,8 @@ var (
 	reBlankLines = regexp.MustCompile(`\n{3,}`)
 )
 
-func ReadWebPage(input ToolInput) (string, error) {
-	pageInput, err := schema.DecodeRaw[ReadWebPageInput](input.RawInput)
+func RunReadWebPageTool(ctx context.Context, args json.RawMessage) (string, error) {
+	pageInput, err := decode[ReadWebPageInput](args)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse read_web_page input: %w", err)
 	}

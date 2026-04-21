@@ -3,257 +3,142 @@ package agent
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
-	"github.com/honganh1206/tinker/inference"
 	"github.com/honganh1206/tinker/logger"
 	"github.com/honganh1206/tinker/mcp"
-	"github.com/honganh1206/tinker/message"
+	"github.com/honganh1206/tinker/model"
+	"github.com/honganh1206/tinker/storage"
 	"github.com/honganh1206/tinker/tools"
 )
 
-type mockLLMClient struct {
-	mock.Mock
+// mockModel implements model.Model for testing.
+type mockModel struct {
+	callFn func(ctx context.Context, inputs []storage.Record) ([]storage.Record, int, error)
 }
 
-func (m *mockLLMClient) Generate(ctx context.Context, req inference.Request) (*message.Message, error) {
-	args := m.Called(ctx, req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
+func (m *mockModel) Call(ctx context.Context, inputs []storage.Record) ([]storage.Record, int, error) {
+	return m.callFn(ctx, inputs)
+}
+
+func newTestAgent(t *testing.T, mm *mockModel) *Agent {
+	t.Helper()
+
+	db, err := storage.NewContextDB(":memory:")
+	require.NoError(t, err)
+
+	cw, err := model.NewContextWindow(db, mm, "test")
+	require.NoError(t, err)
+
+	// Register a simple test tool
+	testDef := tools.ToolDefinition{
+		Name:        "test_tool",
+		Description: "A test tool",
 	}
-	return args.Get(0).(*message.Message), args.Error(1)
-}
+	testRunner := &mockToolRunner{output: "test result"}
+	require.NoError(t, cw.RegisterTool(testDef, testRunner))
 
-func (m *mockLLMClient) CountTokens(ctx context.Context, req inference.Request) (int, error) {
-	args := m.Called(ctx, req)
-	return args.Int(0), args.Error(1)
-}
-
-func (m *mockLLMClient) Provider() string {
-	return "mock"
-}
-
-func (m *mockLLMClient) Model() string {
-	return "mock-model"
-}
-
-// Test helpers
-func createTestAgent() (*Agent, *mockLLMClient) {
-	mockLLM := &mockLLMClient{}
-	conv := message.NewConversation()
-	toolBox := &tools.ToolBox{
-		Tools: []*tools.ToolDefinition{
-			{
-				Name:        "test_tool",
-				Description: "A test tool",
-				Function: func(input tools.ToolInput) (string, error) {
-					return "test result", nil
-				},
-			},
-		},
-	}
-
-	agent := New(&Config{
-		LLM:          mockLLM,
-		Conversation: conv,
-		ToolBox:      toolBox,
-		MCPConfigs:   []mcp.ServerConfig{},
-		Logger:       logger.NewDefaultLogger(),
+	return New(&Config{
+		ContextWindow: cw,
+		Logger:        logger.NewDefaultLogger(),
 	})
-	return agent, mockLLM
 }
 
-func createTestMessage(role string, text string) *message.Message {
-	return &message.Message{
-		Role:      role,
-		Content:   []message.ContentBlock{message.NewTextBlock(text)},
-		CreatedAt: time.Now(),
-	}
+type mockToolRunner struct {
+	output string
 }
 
-// Tests
+func (r *mockToolRunner) Run(ctx context.Context, args json.RawMessage) (string, error) {
+	return r.output, nil
+}
+
 func TestNew(t *testing.T) {
 	tests := []struct {
 		name     string
 		mcpCount int
 	}{
-		{
-			name:     "creates agent with MCP configs",
-			mcpCount: 2,
-		},
-		{
-			name:     "creates agent without MCP configs",
-			mcpCount: 0,
-		},
+		{"creates agent with MCP configs", 2},
+		{"creates agent without MCP configs", 0},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockLLM := &mockLLMClient{}
-			conv := message.NewConversation()
-			toolBox := &tools.ToolBox{Tools: []*tools.ToolDefinition{}}
+			db, err := storage.NewContextDB(":memory:")
+			require.NoError(t, err)
+
+			mm := &mockModel{
+				callFn: func(ctx context.Context, inputs []storage.Record) ([]storage.Record, int, error) {
+					return nil, 0, nil
+				},
+			}
+			cw, err := model.NewContextWindow(db, mm, "")
+			require.NoError(t, err)
 
 			mcpConfigs := make([]mcp.ServerConfig, tt.mcpCount)
-			for i := 0; i < tt.mcpCount; i++ {
-				mcpConfigs[i] = mcp.ServerConfig{
-					ID:      "test-server",
-					Command: "test-command",
-				}
-			}
-
-			agent := New(&Config{
-				LLM:          mockLLM,
-				Conversation: conv,
-				ToolBox:      toolBox,
-				MCPConfigs:   mcpConfigs,
+			a := New(&Config{
+				ContextWindow: cw,
+				MCPConfigs:    mcpConfigs,
 			})
 
-			assert.NotNil(t, agent)
-			assert.Equal(t, mockLLM, agent.LLM)
-			assert.Equal(t, conv, agent.Conv)
-			assert.Equal(t, toolBox, agent.ToolBox)
-			assert.NotNil(t, agent.Logger)
+			assert.NotNil(t, a)
+			assert.Equal(t, cw, a.CW)
+			assert.NotNil(t, a.Logger)
 			if tt.mcpCount > 0 {
-				assert.NotNil(t, agent.MCP)
+				assert.NotNil(t, a.MCP)
 			} else {
-				assert.Nil(t, agent.MCP)
+				assert.Nil(t, a.MCP)
 			}
 		})
 	}
 }
 
 func TestAgent_Run_SimpleTextResponse(t *testing.T) {
-	agent, mockLLM := createTestAgent()
-
-	mockLLM.On("Generate", mock.Anything, mock.Anything).Return(
-		createTestMessage(message.AssistantRole, "Hello, how can I help?"), nil)
-	mockLLM.On("CountTokens", mock.Anything, mock.Anything).Return(0, nil).Once()
-
-	err := agent.Run(context.Background(), "Hello")
-
-	assert.NoError(t, err)
-	assert.Len(t, agent.Conv.Messages, 2)
-
-	userMsg := agent.Conv.Messages[0]
-	assert.Equal(t, message.UserRole, userMsg.Role)
-	assert.Len(t, userMsg.Content, 1)
-	if textBlock, ok := userMsg.Content[0].(message.TextBlock); ok {
-		assert.Equal(t, "Hello", textBlock.Text)
-	}
-
-	mockLLM.AssertExpectations(t)
-}
-
-func TestAgent_Run_WithToolUse(t *testing.T) {
-	agent, mockLLM := createTestAgent()
-
-	toolInput, _ := json.Marshal(map[string]string{"query": "test"})
-	toolUseMsg := &message.Message{
-		Role: message.AssistantRole,
-		Content: []message.ContentBlock{
-			message.NewToolUseBlock("tool-123", "test_tool", toolInput),
+	mm := &mockModel{
+		callFn: func(ctx context.Context, inputs []storage.Record) ([]storage.Record, int, error) {
+			return []storage.Record{
+				{Source: storage.ModelResp, Content: "Hello, how can I help?"},
+			}, 100, nil
 		},
-		CreatedAt: time.Now(),
 	}
+	a := newTestAgent(t, mm)
 
-	finalMsg := createTestMessage(message.AssistantRole, "Tool executed successfully")
-
-	mockLLM.On("Generate", mock.Anything, mock.Anything).Return(toolUseMsg, nil).Once()
-	mockLLM.On("Generate", mock.Anything, mock.Anything).Return(finalMsg, nil).Once()
-	mockLLM.On("CountTokens", mock.Anything, mock.Anything).Return(1, nil).Once()
-
-	err := agent.Run(context.Background(), "Use the test tool")
+	result, err := a.Run(context.Background(), "Hello")
 
 	assert.NoError(t, err)
-	assert.Greater(t, len(agent.Conv.Messages), 2)
-
-	mockLLM.AssertExpectations(t)
+	assert.Equal(t, "Hello, how can I help?", result)
 }
 
-func TestAgent_Run_LLMError(t *testing.T) {
-	agent, mockLLM := createTestAgent()
+func TestAgent_Run_WithToolUseEvents(t *testing.T) {
+	mm := &mockModel{
+		callFn: func(ctx context.Context, inputs []storage.Record) ([]storage.Record, int, error) {
+			return []storage.Record{
+				{Source: storage.ToolUse, Content: `test_tool({"query":"test"})`},
+				{Source: storage.ModelResp, Content: "Tool executed successfully"},
+			}, 200, nil
+		},
+	}
+	a := newTestAgent(t, mm)
 
-	expectedError := errors.New("LLM inference failed")
+	result, err := a.Run(context.Background(), "Use the test tool")
 
-	mockLLM.On("Generate", mock.Anything, mock.Anything).Return(nil, expectedError)
+	assert.NoError(t, err)
+	assert.Equal(t, "Tool executed successfully", result)
+}
 
-	err := agent.Run(context.Background(), "Hello")
+func TestAgent_Run_ModelError(t *testing.T) {
+	mm := &mockModel{
+		callFn: func(ctx context.Context, inputs []storage.Record) ([]storage.Record, int, error) {
+			return nil, 0, assert.AnError
+		},
+	}
+	a := newTestAgent(t, mm)
+
+	result, err := a.Run(context.Background(), "Hello")
 
 	assert.Error(t, err)
-	assert.Equal(t, expectedError, err)
-
-	mockLLM.AssertExpectations(t)
-}
-
-func TestAgent_executeLocalTool_Success(t *testing.T) {
-	agent, _ := createTestAgent()
-
-	toolInput, _ := json.Marshal(map[string]string{"query": "test"})
-
-	result := agent.executeLocalTool("tool-123", "test_tool", toolInput)
-
-	assert.IsType(t, message.ToolResultBlock{}, result)
-	toolResult := result.(message.ToolResultBlock)
-	assert.Equal(t, "tool-123", toolResult.ToolUseID)
-	assert.Equal(t, "test_tool", toolResult.ToolName)
-	assert.Equal(t, "test result", toolResult.Content)
-	assert.False(t, toolResult.IsError)
-}
-
-func TestAgent_executeLocalTool_ToolNotFound(t *testing.T) {
-	agent, _ := createTestAgent()
-
-	toolInput, _ := json.Marshal(map[string]string{"query": "test"})
-
-	result := agent.executeLocalTool("tool-123", "nonexistent_tool", toolInput)
-
-	assert.IsType(t, message.ToolResultBlock{}, result)
-	toolResult := result.(message.ToolResultBlock)
-	assert.Equal(t, "tool-123", toolResult.ToolUseID)
-	assert.Equal(t, "nonexistent_tool", toolResult.ToolName)
-	assert.Equal(t, "tool not found", toolResult.Content)
-	assert.True(t, toolResult.IsError)
-}
-
-func TestAgent_executeLocalTool_ToolError(t *testing.T) {
-	agent, _ := createTestAgent()
-
-	// Add a tool that returns an error
-	errorTool := &tools.ToolDefinition{
-		Name:        "error_tool",
-		Description: "A tool that errors",
-		Function: func(input tools.ToolInput) (string, error) {
-			return "", errors.New("tool execution failed")
-		},
-	}
-	agent.ToolBox.Tools = append(agent.ToolBox.Tools, errorTool)
-
-	toolInput, _ := json.Marshal(map[string]string{"query": "test"})
-
-	result := agent.executeLocalTool("tool-123", "error_tool", toolInput)
-
-	assert.IsType(t, message.ToolResultBlock{}, result)
-	toolResult := result.(message.ToolResultBlock)
-	assert.Equal(t, "tool-123", toolResult.ToolUseID)
-	assert.Equal(t, "error_tool", toolResult.ToolName)
-	assert.Equal(t, "tool execution failed", toolResult.Content)
-	assert.True(t, toolResult.IsError)
-}
-
-func TestAgent_executeTool_LocalTool(t *testing.T) {
-	agent, _ := createTestAgent()
-
-	toolInput, _ := json.Marshal(map[string]string{"query": "test"})
-
-	result := agent.executeTool(context.Background(), "tool-123", "test_tool", toolInput)
-
-	assert.IsType(t, message.ToolResultBlock{}, result)
-	toolResult := result.(message.ToolResultBlock)
-	assert.False(t, toolResult.IsError)
-	assert.Equal(t, "test result", toolResult.Content)
+	assert.Empty(t, result)
+	assert.Contains(t, err.Error(), "model call")
 }

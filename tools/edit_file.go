@@ -1,13 +1,12 @@
 package tools
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path"
 	"strings"
-
-	"github.com/honganh1206/tinker/schema"
 )
 
 // TODO: Embed markdown tool prompt
@@ -20,7 +19,7 @@ var EditFileDefinition = ToolDefinition{
 
 	If the file specified with path doesn't exist, it will be created`,
 	InputSchema: EditFileInputSchema,
-	Function:    EditFile,
+	Function:    RunEditFileTool,
 }
 
 type EditFileInput struct {
@@ -29,13 +28,13 @@ type EditFileInput struct {
 	NewStr string `json:"new_str" jsonschema_description:"Text to replace old_str with"`
 }
 
-var EditFileInputSchema = schema.Generate[EditFileInput]()
+var EditFileInputSchema = generate[EditFileInput]()
 
-func EditFile(input ToolInput) (string, error) {
-	editFileInput := EditFileInput{}
-	err := json.Unmarshal(input.RawInput, &editFileInput)
+
+func RunEditFileTool(ctx context.Context, args json.RawMessage) (string, error) {
+	editFileInput, err := decode[EditFileInput](args) 
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("parse edit_file input: %w", err)
 	}
 
 	if editFileInput.Path == "" || editFileInput.OldStr == editFileInput.NewStr {
@@ -55,7 +54,6 @@ func EditFile(input ToolInput) (string, error) {
 	}
 
 	oldContent := string(content)
-	// Replace all occurences
 	newContent := strings.ReplaceAll(oldContent, editFileInput.OldStr, editFileInput.NewStr)
 
 	if oldContent == newContent && editFileInput.OldStr != "" {

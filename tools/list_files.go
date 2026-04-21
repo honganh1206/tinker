@@ -1,12 +1,12 @@
 package tools
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/honganh1206/tinker/schema"
 )
 
 var skipDirs = map[string]bool{
@@ -26,21 +26,19 @@ var ListFilesDefinition = ToolDefinition{
 	Name:        "list_files",
 	Description: "List files and directories at a given path. If no path is provided, list files in the current directory",
 	InputSchema: ListFilesInputSchema,
-	Function:    ListFiles,
+	Function:    RunListFilesTool,
 }
 
 type ListFilesInput struct {
 	Path string `json:"path,omitempty" jsonschema_description:"Optional relative path to list files from. Defaults to current directory if not provided."`
 }
 
-var ListFilesInputSchema = schema.Generate[ListFilesInput]()
+var ListFilesInputSchema = generate[ListFilesInput]()
 
-func ListFiles(input ToolInput) (string, error) {
-	listFilesInput := ListFilesInput{}
-
-	err := json.Unmarshal(input.RawInput, &listFilesInput)
+func RunListFilesTool(ctx context.Context, args json.RawMessage) (string, error) {
+	listFilesInput, err := decode[ListFilesInput](args)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("parse list_files input: %w", err)
 	}
 
 	dir := "."
@@ -55,7 +53,7 @@ func ListFiles(input ToolInput) (string, error) {
 			return err
 		}
 
-		if info.IsDir() && (skipDirs[info.Name()] || strings.HasPrefix(info.Name(), ".")) {
+		if info.IsDir() && path != dir && (skipDirs[info.Name()] || strings.HasPrefix(info.Name(), ".")) {
 			return filepath.SkipDir
 		}
 

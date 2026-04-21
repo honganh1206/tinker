@@ -7,7 +7,9 @@ require (
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/google/uuid v1.6.0
 	github.com/invopop/jsonschema v0.13.0
+	github.com/mattn/go-sqlite3 v1.14.42
 	github.com/nats-io/nats.go v1.50.0
+	github.com/peterheb/gotoken v0.9.1
 	github.com/stretchr/testify v1.8.4
 	google.golang.org/genai v1.36.0
 )
