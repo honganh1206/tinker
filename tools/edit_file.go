@@ -9,8 +9,6 @@ import (
 	"strings"
 )
 
-// TODO: Embed markdown tool prompt
-// Apparently Claude loves replacing strings (known through experiments?)
 var EditFileDefinition = ToolDefinition{
 	Name: ToolNameEditFile,
 	Description: `Make edits to a text file.

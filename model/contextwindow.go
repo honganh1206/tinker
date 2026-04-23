@@ -6,12 +6,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+
+	_ "embed"
 
 	"github.com/google/uuid"
 	"github.com/honganh1206/tinker/storage"
 	"github.com/honganh1206/tinker/tools"
 	_ "github.com/mattn/go-sqlite3"
 )
+
+//go:embed system.md
+var systemPrompt string
 
 type (
 	ProviderName string
@@ -37,7 +43,7 @@ func NewContextWindow(
 	contextName string,
 ) (*ContextWindow, error) {
 	if contextName == "" {
-		contextName = uuid.New().String()
+		contextName = uuid.NewString()
 	}
 
 	cw := &ContextWindow{
@@ -55,6 +61,7 @@ func NewContextWindow(
 		toolCapable.SetToolExecutor(cw)
 	}
 
+	// Check if context exists and to be loaded into the context window
 	_, err := storage.GetContextByName(db, contextName)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -62,12 +69,26 @@ func NewContextWindow(
 			if err != nil {
 				return nil, fmt.Errorf("create context: %w", err)
 			}
+			// NOTE: For now, each session only has one context
+			// so we set the system prompt as the 1st record
+			if err := cw.setSystemPrompt(); err != nil {
+				return nil, fmt.Errorf("set system prompt: %w", err)
+			}
+
 		} else {
 			return nil, fmt.Errorf("get context: %w", err)
 		}
 	}
 
 	return cw, nil
+}
+
+// HasContext true if this context exists
+func (cw *ContextWindow) HasContext() (bool, error) {
+	if cw.currentContext != "" {
+		return true, nil
+	}
+	return false, nil
 }
 
 // Close closes the database connection.
@@ -132,8 +153,10 @@ func (cw *ContextWindow) AddToolOutput(output string) error {
 	return nil
 }
 
-// SetSystemPrompt sets the system prompt for the current context.
-func (cw *ContextWindow) SetSystemPrompt(text string) error {
+// setSystemPrompt sets the system prompt for the current context.
+func (cw *ContextWindow) setSystemPrompt() error {
+	sp := strings.TrimSpace(systemPrompt)
+
 	contextID, err := storage.GetContextIDByName(cw.db, cw.currentContext)
 	if err != nil {
 		return fmt.Errorf("set system prompt: %w", err)
@@ -145,13 +168,13 @@ func (cw *ContextWindow) SetSystemPrompt(text string) error {
 	}
 	defer tx.Rollback()
 
-	// Why live = 0 here?
+	// Set live = false since the system prompt should only be sent once at the start of the session
 	_, err = tx.Exec(`UPDATE records SET live = 0 WHERE context_id = ? AND source = ?`, contextID, storage.SystemPrompt)
 	if err != nil {
 		return fmt.Errorf("set system prompt: %w", err)
 	}
 
-	_, err = storage.InsertRecordTx(tx, contextID, storage.SystemPrompt, text, true)
+	_, err = storage.InsertRecordTx(tx, contextID, storage.SystemPrompt, sp, true)
 	if err != nil {
 		return fmt.Errorf("set system prompt: %w", err)
 	}
@@ -160,25 +183,29 @@ func (cw *ContextWindow) SetSystemPrompt(text string) error {
 }
 
 // RegisterTool registers a tool with this ContextWindow instance
-// and stores a tool name and description as a hint in the database
+// and stores a tool name in the database.
+// Use for new sessions only.
 func (cw *ContextWindow) RegisterTool(toolDef tools.ToolDefinition) error {
-	cw.registeredTools[toolDef.Name] = toolDef
-	cw.toolRunners[toolDef.Name] = toolDef.Function
+	cw.LoadTool(toolDef)
 
-	// Store the tool name in the database as a hint (why? for what?)
 	contextID, err := storage.GetContextIDByName(cw.db, cw.currentContext)
 	if err != nil {
 		return fmt.Errorf("register tool: %w", err)
 	}
 
-	// Ensure tool name is included in the context window
-	// TODO: This is registering tools for EVERY context call
 	_, err = storage.AddContextTool(cw.db, contextID, toolDef.Name)
 	if err != nil {
 		return fmt.Errorf("register tool: %w", err)
 	}
 
 	return nil
+}
+
+// LoadTool populates the in-memory tool maps without writing to the database.
+// Use for returning sessions where tools are already persisted.
+func (cw *ContextWindow) LoadTool(toolDef tools.ToolDefinition) {
+	cw.registeredTools[toolDef.Name] = toolDef
+	cw.toolRunners[toolDef.Name] = toolDef.Function
 }
 
 // ExecuteTool implements the ToolExecutor interface
@@ -197,6 +224,15 @@ func (cw *ContextWindow) GetRegisteredTools() []tools.ToolDefinition {
 		tools = append(tools, toolDef)
 	}
 	return tools
+}
+
+// HasTool checks if a tool name is available in this context.
+func (cw *ContextWindow) HasTool(name string) (bool, error) {
+	contextID, err := storage.GetContextIDByName(cw.db, cw.currentContext)
+	if err != nil {
+		return false, fmt.Errorf("has tool: %w", err)
+	}
+	return storage.HasContextTool(cw.db, contextID, name)
 }
 
 // Model returns the underlying Model so callers can invoke Call directly.

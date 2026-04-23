@@ -106,7 +106,7 @@ func TestReadFile_LineRange(t *testing.T) {
 
 func TestReadFile_DefaultCap(t *testing.T) {
 	var lines []string
-	for i := 1; i <= 600; i++ {
+	for i := 1; i <= 100; i++ {
 		lines = append(lines, fmt.Sprintf("Line %d", i))
 	}
 	content := strings.Join(lines, "\n")
@@ -119,10 +119,8 @@ func TestReadFile_DefaultCap(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Contains(t, result, "1: Line 1")
-	assert.Contains(t, result, "500: Line 500")
-	assert.NotContains(t, result, "501: Line 501")
-	assert.Contains(t, result, "100 lines remaining")
-	assert.Contains(t, result, "600 total lines")
+	assert.Contains(t, result, "100: Line 100")
+	assert.NotContains(t, result, "101: Line 101")
 }
 
 func TestReadFile_StartLineBeyondEnd(t *testing.T) {

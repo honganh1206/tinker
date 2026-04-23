@@ -13,7 +13,6 @@ type InboundMessage struct {
 	SenderID     string `json:"senderId"`
 	SenderName   string `json:"senderName,omitempty"`
 	ChatID       string `json:"chatId"`
-	// Conversation thread
 	ThreadID    string            `json:"threadId,omitempty"`
 	Text        string            `json:"text"`
 	Attachments []Attachment      `json:"attachments,omitempty"`
@@ -34,6 +33,7 @@ type OutboundMessage struct {
 type AgentRunCompleted struct {
 	Channel      string `json:"channel"`
 	ChatID       string `json:"chatId"`
+	ThreadID     string `json:"threadId,omitempty"`
 	ReplyTo      string `json:"replyTo,omitempty"`
 	FinalMessage string `json:"finalMessage"`
 	Status       string `json:"status"`

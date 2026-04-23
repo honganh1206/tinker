@@ -33,13 +33,13 @@ func newTestAgent(t *testing.T, mm *mockModel) *Agent {
 	cw, err := model.NewContextWindow(db, mm, "test")
 	require.NoError(t, err)
 
-	// Register a simple test tool
+	testRunner := &mockToolRunner{output: "test result"}
 	testDef := tools.ToolDefinition{
 		Name:        "test_tool",
 		Description: "A test tool",
+		Function:    testRunner.Run,
 	}
-	testRunner := &mockToolRunner{output: "test result"}
-	require.NoError(t, cw.RegisterTool(testDef, testRunner))
+	require.NoError(t, cw.RegisterTool(testDef))
 
 	return New(&Config{
 		ContextWindow: cw,
@@ -74,7 +74,7 @@ func TestNew(t *testing.T) {
 					return nil, 0, nil
 				},
 			}
-			cw, err := model.NewContextWindow(db, mm, "")
+			cw, err := model.NewContextWindow(db, mm, "default")
 			require.NoError(t, err)
 
 			mcpConfigs := make([]mcp.ServerConfig, tt.mcpCount)

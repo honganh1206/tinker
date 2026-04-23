@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,6 +25,7 @@ type DiscordChannel struct {
 	// Connection to Discord API
 	session *discordgo.Session
 	healthy bool
+	log     *logger.Logger
 }
 
 func main() {
@@ -65,6 +67,7 @@ func main() {
 			EventBus:     bus,
 		},
 		session: dg,
+		log:     log,
 	}
 
 	// Guild messages and DMs
@@ -127,7 +130,7 @@ func main() {
 
 // discordgo handler for MESSAGE_CREATE events.
 func (dc *DiscordChannel) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	// Ignore messsages from the bot
+	// Ignore messages from the bot
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
@@ -137,10 +140,58 @@ func (dc *DiscordChannel) messageCreate(s *discordgo.Session, m *discordgo.Messa
 		return
 	}
 
+	// Check if the message is inside a thread
+	ch, err := s.State.Channel(m.ChannelID)
+	if err != nil {
+		// Either nil state or state not found
+		// Fetch directly from API
+		ch, err = s.Channel(m.ChannelID)
+		if err != nil {
+			dc.log.Error("failed to fetch channel", "error", err, "channelID", m.ChannelID)
+			return
+		}
+	}
+
+	var threadID string
+
+	if ch.IsThread() {
+		// Message is inside a thread
+		if !isBotMentioned(s, m) {
+			return
+		}
+
+		threadID = m.ChannelID
+	} else {
+		if !isBotMentioned(s, m) {
+			return
+		}
+
+		// TODO: Thread name should be a summary of the first turn
+		threadName := truncateForLog(m.Content, 50)
+		thread, err := s.MessageThreadStartComplex(m.ChannelID, m.ID, &discordgo.ThreadStart{
+			Name:                threadName,
+			AutoArchiveDuration: 1440, // 24 hours - configurable?
+			Type:                discordgo.ChannelTypeGuildPublicThread,
+		})
+		if err != nil {
+			dc.log.Error("failed to create thread", "error", err)
+			return
+		}
+		threadID = thread.ID
+
+	}
+
+	// Strip bot mention from the text
+	cleanText := stripBotMention(s, m.Content)
+	if cleanText == "" {
+		return
+	}
+
 	msg := channel.InboundMessage{
 		SenderID:   m.Author.ID,
 		SenderName: m.Author.Username,
 		ChatID:     m.ChannelID,
+		ThreadID:   threadID,
 		Text:       m.Content,
 		Metadata: map[string]string{
 			"messageId": m.ID,
@@ -181,8 +232,38 @@ func (dc *DiscordChannel) handleOutbound(ctx context.Context) {
 	}
 }
 
-// Send a message to a Discord channel
+// sendMessage sends a message to a Discord channel or a thread
 func (dc *DiscordChannel) sendMessage(msg channel.OutboundMessage) error {
-	_, err := dc.session.ChannelMessageSend(msg.ChatID, msg.Text)
+	target := msg.ChatID
+	if msg.ThreadID != "" {
+		target = msg.ThreadID
+	}
+	_, err := dc.session.ChannelMessageSend(target, msg.Text)
 	return err
+}
+
+func isBotMentioned(s *discordgo.Session, m *discordgo.MessageCreate) bool {
+	for _, u := range m.Mentions {
+		if u.ID == s.State.User.ID {
+			return true
+		}
+	}
+	return false
+}
+
+// stripBotMention removes the <@botID> mention prefix from the message text.
+func stripBotMention(s *discordgo.Session, text string) string {
+	mention := "<@" + s.State.User.ID + ">"
+	text = strings.Replace(text, mention, "", 1)
+	// Also handle nickname mentions: <@!botID>
+	mention = "<@!" + s.State.User.ID + ">"
+	text = strings.Replace(text, mention, "", 1)
+	return strings.TrimSpace(text)
+}
+
+func truncateForLog(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
 }

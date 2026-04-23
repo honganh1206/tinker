@@ -35,6 +35,19 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
+	home, err := os.UserHomeDir()
+	if err != nil {
+		os.Exit(1)
+	}
+	sessionDir := filepath.Join(home, ".tinker", "sessions")
+
+	// TODO: Add a unified model client here instead of hardcoding Claude
+	// or maybe we hardcode Claude for implementation? :)
+	llm, err := model.NewClaudeModel(model.ModelVersion(modelName))
+	if err != nil {
+		os.Exit(1)
+	}
+
 	bus, err := eventbus.NewNATSEventBus(eventBusURL)
 	if err != nil {
 		log.Error("failed to connect to event bus", "error", err)
@@ -81,7 +94,7 @@ func main() {
 				"sender", msg.SenderName,
 				"text", truncateForLog(msg.Text, 80))
 
-			finalMessage, err := handleMessage(eventCtx, model.ModelVersion(modelName), msg.Text, log)
+			finalMessage, err := handleMessage(eventCtx, llm, sessionDir, msg.ThreadID, msg.Text, log)
 			if err != nil {
 				log.Error("agent run failed", "error", err)
 				continue
@@ -90,6 +103,7 @@ func main() {
 			completed := channel.AgentRunCompleted{
 				Channel:      msg.Channel,
 				ChatID:       msg.ChatID,
+				ThreadID:     msg.ThreadID,
 				ReplyTo:      msg.Metadata["messageId"],
 				FinalMessage: finalMessage,
 				Status:       "success",
@@ -108,29 +122,15 @@ func main() {
 	}
 }
 
-func handleMessage(ctx context.Context, modelVersion model.ModelVersion, prompt string, log *logger.Logger) (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	dbPath := filepath.Join(home, ".tinker", "test.db")
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
-		return "", err
-	}
-	db, err := storage.NewContextDB(dbPath)
+func handleMessage(ctx context.Context, llm model.Model, sessionDir, threadID, prompt string, log *logger.Logger) (string, error) {
+	db, err := storage.OpenSession(sessionDir, threadID)
 	if err != nil {
 		return "", err
 	}
 
-	llm, err := model.NewClaudeModel(modelVersion)
-	if err != nil {
-		if err = db.Close(); err != nil {
-			return "", fmt.Errorf("closing db: %w", err)
-		}
-		return "", err
-	}
-
-	cw, err := model.NewContextWindow(db, llm, "")
+	// NOTE: For now each session has one context only
+	// so we hardcoded the "default" context name
+	cw, err := model.NewContextWindow(db, llm, "default")
 	if err != nil {
 		if err = db.Close(); err != nil {
 			return "", fmt.Errorf("closing db: %w", err)
@@ -150,9 +150,21 @@ func handleMessage(ctx context.Context, modelVersion model.ModelVersion, prompt 
 		tools.ReadWebPageDefinition,
 	}
 
-	for _, t := range builtinTools {
-		if err := cw.RegisterTool(t); err != nil {
-			return "", err
+	exists, err := cw.HasContext()
+	if err != nil {
+		return "", err
+	}
+	if !exists {
+		for _, t := range builtinTools {
+			// Insert tool context to the session and load the tools to the memory
+			if err := cw.RegisterTool(t); err != nil {
+				return "", err
+			}
+		}
+	} else {
+		for _, t := range builtinTools {
+			cw.LoadTool(t)
+			// Only load the tools into memory
 		}
 	}
 
@@ -160,8 +172,6 @@ func handleMessage(ctx context.Context, modelVersion model.ModelVersion, prompt 
 		ContextWindow: cw,
 		Logger:        log,
 	})
-
-	a.CW.SetSystemPrompt(model.SystemPrompt())
 
 	return a.Run(ctx, prompt)
 }

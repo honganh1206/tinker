@@ -3,6 +3,9 @@ package storage
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -72,4 +75,38 @@ func InitializeSchema(db *sql.DB) error {
 	}
 
 	return nil
+}
+
+// OpenSession opens (or creates) a per-session SQLite database.
+// Each session is identified by a thread ID and stored as <threadID>.db
+// in the given directory.
+func OpenSession(sessionsDir, threadID string) (*sql.DB, error) {
+	if err := os.MkdirAll(sessionsDir, 0o755); err != nil {
+		return nil, fmt.Errorf("create sessions dir: %w", err)
+	}
+	dbPath := filepath.Join(sessionsDir, threadID+".db")
+	return NewContextDB(dbPath)
+}
+
+// ListSession returns the thread IDs of all session databases in the directory.
+func ListSessions(sessionsDir string) ([]string, error) {
+	entries, err := os.ReadDir(sessionsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read sessions dir: %w", err)
+	}
+
+	var sessions []string
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if filepath.Ext(name) == ".db" {
+			sessions = append(sessions, strings.TrimSuffix(name, ".db"))
+		}
+	}
+	return sessions, nil
 }

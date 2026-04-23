@@ -60,6 +60,7 @@ func (r *Router) handleCompleted(ctx context.Context, event *eventbus.Event) {
 	outbound := channel.OutboundMessage{
 		Channel: completed.Channel,
 		ChatID:  completed.ChatID,
+		ThreadID: completed.ThreadID,
 		Text:    completed.FinalMessage,
 		ReplyTo: completed.ReplyTo,
 	}

@@ -51,12 +51,12 @@ func (a *Agent) StartMCP(ctx context.Context, configs []mcp.ServerConfig) error 
 	}
 
 	for _, t := range mcpTools {
-		runner := &tools.MCPToolRunner{Manager: a.MCP, Name: t.Name}
+		// runner := &tools.MCPToolRunner{Manager: a.MCP, Name: t.Name}
 		if err := a.CW.RegisterTool(tools.ToolDefinition{
 			Name:        t.Name,
 			Description: t.Description,
 			InputSchema: t.InputSchema,
-		}, runner); err != nil {
+		}); err != nil {
 			return fmt.Errorf("register MCP tool %s: %w", t.Name, err)
 		}
 	}

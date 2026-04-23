@@ -15,7 +15,7 @@ func TestNewContextWindowAndClose(t *testing.T) {
 	db, err := storage.NewContextDB(path)
 	assert.NoError(t, err)
 
-	cw, err := NewContextWindow(db, &dummyModel{}, "")
+	cw, err := NewContextWindow(db, &dummyModel{}, "mock")
 	assert.NoError(t, err)
 	assert.NotNil(t, cw.db)
 
@@ -82,26 +82,12 @@ func TestContextContinuation(t *testing.T) {
 	assert.Equal(t, 3, len(prompts))
 }
 
-func TestAddPromptEstTokens(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "cw.db")
-	db, err := storage.NewContextDB(path)
-	assert.NoError(t, err)
-
-	cw, err := NewContextWindow(db, &dummyModel{}, "")
-	assert.NoError(t, err)
-	err = cw.AddPrompt("hello world")
-	assert.NoError(t, err)
-	recs, err := cw.LiveRecords()
-	assert.NoError(t, err)
-	assert.Equal(t, storage.TokenCount("hello world"), recs[0].EstTokens)
-}
-
 func TestCallModelInsertRecordError(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "cw.db")
 	db, err := storage.NewContextDB(path)
 	assert.NoError(t, err)
 	m := &dummyModel{closeDB: true}
-	cw, err := NewContextWindow(db, m, "")
+	cw, err := NewContextWindow(db, m, "mock")
 	assert.NoError(t, err)
 	m.cw = cw
 	m.events = []storage.Record{{

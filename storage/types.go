@@ -11,7 +11,7 @@ type Record struct {
 	Timestamp time.Time  `json:"timestamp"`
 	Source    RecordType `json:"source"`
 	Content   string     `json:"content"`
-	// Flag to control whether record is sent to LLM or not
+	// Flag to control whether record is sent to LLM on each call or not
 	Live bool `json:"live"`
 	// Estimated number of tokens, counted by built-in tokenizer
 	EstTokens int    `json:"est_tokens"`

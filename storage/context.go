@@ -172,6 +172,20 @@ func AddContextTool(db *sql.DB, contextID, toolName string) (ContextTool, error)
 	}, nil
 }
 
+// HasContextTool checks if a specific tool is available in a context.
+func HasContextTool(db *sql.DB, contextID, toolName string) (bool, error) {
+	var exists bool
+	err := db.QueryRow(
+		`SELECT 1 FROM context_tools WHERE context_id = ? AND tool_name = ?`,
+		contextID, toolName,
+	).Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		return false, fmt.Errorf("check context tool: %w", err)
+	}
+	return exists, nil
+}
+
+
 // ListLiveRecords returns all live records in a context in a timestamp order
 func ListLiveRecords(db *sql.DB, contextID string) ([]Record, error) {
 	return listRecordsWhere(db, "context_id = ? AND live = 1", contextID)

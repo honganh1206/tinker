@@ -12,12 +12,12 @@ import (
 //go:embed read_file.md
 var readFilePrompt string
 
-const defaultMaxLines = 500
+const defaultMaxLines = 100
 
 type ReadFileInput struct {
 	Path      string `json:"path" jsonschema_description:"The absolute path of a file in the working directory."`
-	StartLine int    `json:"start_line,omitempty" jsonschema_description:"The 1-indexed line number to start reading from. Defaults to 1."`
-	EndLine   int    `json:"end_line,omitempty" jsonschema_description:"The 1-indexed line number to stop reading at (inclusive). Defaults to start_line + 499."`
+	StartLine int    `json:"start_line" jsonschema_description:"The 1-indexed line number to start reading from. Defaults to 1."`
+	EndLine   int    `json:"end_line" jsonschema_description:"The 1-indexed line number to stop reading at (inclusive). Defaults to start_line + 99."`
 }
 
 var ReadFileInputSchema = generate[ReadFileInput]()
