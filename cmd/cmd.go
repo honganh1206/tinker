@@ -3,13 +3,9 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"io/fs"
-	"net/http"
 	"strings"
-	"time"
 
 	"github.com/honganh1206/tinker/mcp"
-	"github.com/honganh1206/tinker/web"
 	"github.com/spf13/cobra"
 )
 
@@ -70,61 +66,7 @@ func MCPHandler(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func SessionsHandler(cmd *cobra.Command, args []string) error {
-	s, err := store.NewFileStore("")
-	if err != nil {
-		return fmt.Errorf("failed to open session store: %w", err)
-	}
-
-	summaries, err := s.List()
-	if err != nil {
-		return fmt.Errorf("failed to list sessions: %w", err)
-	}
-
-	if len(summaries) == 0 {
-		fmt.Println("No sessions found.")
-		return nil
-	}
-
-	for _, s := range summaries {
-		fmt.Printf("%-10s %-8s %s\n", s.ID[:8], s.Status, s.Prompt)
-	}
-
-	return nil
-}
-
-func ServeHandler(cmd *cobra.Command, args []string) error {
-	addr, _ := cmd.Flags().GetString("addr")
-
-	s, err := store.NewFileStore("")
-	if err != nil {
-		return fmt.Errorf("failed to open session store: %w", err)
-	}
-
-	frontendFS, err := fs.Sub(web.Dist, "dist")
-	if err != nil {
-		return fmt.Errorf("failed to load frontend assets: %w", err)
-	}
-
-	srv := server.New(s, frontendFS)
-
-	httpServer := &http.Server{
-		Addr:              addr,
-		Handler:           srv.Mux(),
-		ReadHeaderTimeout: 10 * time.Second,
-	}
-
-	fmt.Printf("Dashboard running at http://localhost%s\n", addr)
-	return httpServer.ListenAndServe()
-}
-
 func NewCLI() *cobra.Command {
-	modelCmd := &cobra.Command{
-		Use:   "model",
-		Short: "List available models for the selected provider",
-		RunE:  ModelHandler,
-	}
-
 	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print the version number of tinker",
@@ -151,20 +93,6 @@ Examples:
 
 	mcpCmd.Flags().StringVar(&mcpServerCmd, "server-cmd", "", "Server configuration in format id:command (e.g., 'my-server:uvx mcp-server-fetch')")
 
-	sessionsCmd := &cobra.Command{
-		Use:   "sessions",
-		Short: "List past sessions",
-		RunE:  SessionsHandler,
-	}
-
-	serveCmd := &cobra.Command{
-		Use:   "serve",
-		Short: "Start the dashboard web server",
-		Long:  `Start an HTTP server that serves the monitoring dashboard and session API.`,
-		RunE:  ServeHandler,
-	}
-	serveCmd.Flags().String("addr", ":11435", "Listen address for the dashboard server")
-
 	rootCmd := &cobra.Command{
 		Use:   "tinker",
 		Short: "A background coding agent",
@@ -179,12 +107,9 @@ Examples:
 		},
 	}
 
-	rootCmd.PersistentFlags().StringVar(&llm.ProviderName, "provider", string(inference.AnthropicProvider), "Provider (anthropic, gemini)")
-	rootCmd.PersistentFlags().StringVar(&llm.ModelName, "model", "", "Model to use (depends on selected model)")
-	rootCmd.PersistentFlags().Int64Var(&llm.TokenLimit, "max-tokens", 0, "Maximum number of tokens in response")
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Enable verbose output")
 
-	rootCmd.AddCommand(versionCmd, modelCmd, mcpCmd, sessionsCmd, serveCmd)
+	rootCmd.AddCommand(versionCmd, mcpCmd)
 
 	return rootCmd
 }
