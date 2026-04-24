@@ -7,7 +7,8 @@ import (
 
 func newTestDB(t *testing.T) *sql.DB {
 	t.Helper()
-	db, err := NewContextDB(":memory:")
+	threadID := "1234567890"
+	db, err := NewSession(":memory:", threadID)
 	if err != nil {
 		t.Fatalf("new test db: %v", err)
 	}

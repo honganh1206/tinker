@@ -2,7 +2,6 @@ package model
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 
 	"github.com/honganh1206/tinker/storage"
@@ -10,9 +9,7 @@ import (
 )
 
 func TestNewContextWindowAndClose(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "cw.db")
-
-	db, err := storage.NewContextDB(path)
+	db, err := storage.NewSession(":memory:", "")
 	assert.NoError(t, err)
 
 	cw, err := NewContextWindow(db, &dummyModel{}, "mock")
@@ -34,7 +31,7 @@ func TestNewContextWindowAndClose(t *testing.T) {
 }
 
 func TestContextContinuation(t *testing.T) {
-	db, err := storage.NewContextDB(":memory:")
+	db, err := storage.NewSession(":memory:", "")
 	assert.NoError(t, err)
 	defer db.Close()
 
@@ -83,8 +80,7 @@ func TestContextContinuation(t *testing.T) {
 }
 
 func TestCallModelInsertRecordError(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "cw.db")
-	db, err := storage.NewContextDB(path)
+	db, err := storage.NewSession(":memory:", "")
 	assert.NoError(t, err)
 	m := &dummyModel{closeDB: true}
 	cw, err := NewContextWindow(db, m, "mock")
@@ -101,8 +97,7 @@ func TestCallModelInsertRecordError(t *testing.T) {
 }
 
 func TestCreateAndListContexts(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "cw.db")
-	db, err := storage.NewContextDB(path)
+	db, err := storage.NewSession(":memory:", "")
 	assert.NoError(t, err)
 
 	cw, err := NewContextWindow(db, &dummyModel{}, "")

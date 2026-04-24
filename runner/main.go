@@ -125,12 +125,14 @@ func main() {
 func handleMessage(ctx context.Context, llm model.Model, sessionDir, threadID, prompt string, log *logger.Logger) (string, error) {
 	db, err := storage.OpenSession(sessionDir, threadID)
 	if err != nil {
-		return "", err
+		// Could there be any error that is not related to no session?
+		db, err = storage.NewSession(sessionDir, threadID)
+		if err != nil {
+			return "", fmt.Errorf("creating new session: %w", err)
+		}
 	}
 
-	// NOTE: For now each session has one context only
-	// so we hardcoded the "default" context name
-	cw, err := model.NewContextWindow(db, llm, "default")
+	cw, err := model.NewContextWindow(db, llm, threadID)
 	if err != nil {
 		if err = db.Close(); err != nil {
 			return "", fmt.Errorf("closing db: %w", err)

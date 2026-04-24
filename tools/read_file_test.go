@@ -19,7 +19,7 @@ func createTestFile(t *testing.T, content string) string {
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "test_file.txt")
 
-	err := os.WriteFile(filePath, []byte(content), 0644)
+	err := os.WriteFile(filePath, []byte(content), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -179,9 +179,9 @@ func TestReadFile_PermissionDenied(t *testing.T) {
 	content := "restricted content"
 	filePath := createTestFile(t, content)
 
-	err := os.Chmod(filePath, 0000)
+	err := os.Chmod(filePath, 0o000)
 	assert.NoError(t, err)
-	defer os.Chmod(filePath, 0644)
+	defer os.Chmod(filePath, 0o644)
 
 	input := ReadFileInput{Path: filePath}
 	inputJSON, _ := json.Marshal(input)
@@ -222,7 +222,7 @@ func BenchmarkReadFile_SmallFile(b *testing.B) {
 	content := "Small file content for benchmarking"
 	tmpDir := b.TempDir()
 	filePath := filepath.Join(tmpDir, "small_file.txt")
-	os.WriteFile(filePath, []byte(content), 0644)
+	os.WriteFile(filePath, []byte(content), 0o644)
 
 	input := ReadFileInput{Path: filePath}
 	inputJSON, _ := json.Marshal(input)
@@ -242,7 +242,7 @@ func BenchmarkReadFile_LargeFile(b *testing.B) {
 
 	tmpDir := b.TempDir()
 	filePath := filepath.Join(tmpDir, "large_file.txt")
-	os.WriteFile(filePath, []byte(largeContent), 0644)
+	os.WriteFile(filePath, []byte(largeContent), 0o644)
 
 	input := ReadFileInput{Path: filePath}
 	inputJSON, _ := json.Marshal(input)

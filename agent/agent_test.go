@@ -27,7 +27,7 @@ func (m *mockModel) Call(ctx context.Context, inputs []storage.Record) ([]storag
 func newTestAgent(t *testing.T, mm *mockModel) *Agent {
 	t.Helper()
 
-	db, err := storage.NewContextDB(":memory:")
+	db, err := storage.NewSession(":memory:", "")
 	require.NoError(t, err)
 
 	cw, err := model.NewContextWindow(db, mm, "test")
@@ -66,7 +66,7 @@ func TestNew(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := storage.NewContextDB(":memory:")
+			db, err := storage.NewSession(":memory:", "")
 			require.NoError(t, err)
 
 			mm := &mockModel{

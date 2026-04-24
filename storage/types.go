@@ -20,9 +20,9 @@ type Record struct {
 
 // Context represents a named context window with metadata
 type Context struct {
-	ID                     string    `json:"id"`
-	Name                   string    `json:"name"`
-	StartTime              time.Time `json:"start_time"`
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	StartTime time.Time `json:"start_time"`
 }
 
 // ContextTool represents a tool available in a specific context
@@ -31,4 +31,16 @@ type ContextTool struct {
 	ContextID string    `json:"context_id"`
 	ToolName  string    `json:"tool_name"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type Session struct {
+	ID               string        `json:"id"`
+	Name             string        `json:"name,omitempty"`
+	StartTime        string        `json:"start_time,omitempty"`
+	ContextCount     int           `json:"context_count"`
+	RecordCount      int           `json:"record_count"`
+	ContextToolCount int           `json:"context_tool_count"`
+	Contexts         []Context     `json:"contexts"`
+	Records          []Record      `json:"records"`
+	ContextTools     []ContextTool `json:"context_tools"`
 }

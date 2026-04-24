@@ -25,6 +25,9 @@ func CreateContext(db *sql.DB, name string) (Context, error) {
 
 	// Check existing context
 	_, err := GetContextByName(db, name)
+	if err == nil {
+		return Context{}, fmt.Errorf("context %q already exists", name)
+	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return Context{}, fmt.Errorf("check existing context: %w", err)
 	}

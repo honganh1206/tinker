@@ -8,15 +8,15 @@ import (
 
 // InboundMessage represents a message received from an external channel.
 type InboundMessage struct {
-	Channel      string `json:"channel"`
-	InstanceName string `json:"instanceName"`
-	SenderID     string `json:"senderId"`
-	SenderName   string `json:"senderName,omitempty"`
-	ChatID       string `json:"chatId"`
-	ThreadID    string            `json:"threadId,omitempty"`
-	Text        string            `json:"text"`
-	Attachments []Attachment      `json:"attachments,omitempty"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
+	Channel      string            `json:"channel"`
+	InstanceName string            `json:"instanceName"`
+	SenderID     string            `json:"senderId"`
+	SenderName   string            `json:"senderName,omitempty"`
+	ChatID       string            `json:"chatId"`
+	ThreadID     string            `json:"threadId,omitempty"`
+	Text         string            `json:"text"`
+	Attachments  []Attachment      `json:"attachments,omitempty"`
+	Metadata     map[string]string `json:"metadata,omitempty"`
 }
 
 // OutboundMessage represents a message to send to an external channel.
