@@ -36,15 +36,15 @@ func OpenSession(dir, id string) (*sql.DB, error) {
 
 // NewSession creates a database/session to store context window in.
 // We call this before creating context windows.
-func NewSession(sessionsDir, threadID string) (*sql.DB, error) {
+func NewSession(dir, id string) (*sql.DB, error) {
 	var dbPath string
-	if sessionsDir == ":memory:" {
+	if dir == ":memory:" {
 		dbPath = ":memory:"
 	} else {
-		if err := os.MkdirAll(sessionsDir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, fmt.Errorf("create sessions dir: %w", err)
 		}
-		dbPath = filepath.Join(sessionsDir, threadID+".db")
+		dbPath = filepath.Join(dir, id+".db")
 	}
 
 	db, err := sql.Open("sqlite3", dbPath)

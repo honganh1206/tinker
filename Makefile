@@ -63,6 +63,9 @@ web-dev: web-install ## Start the frontend dev server (hot-reload, proxy to :808
 web-clean: ## Remove frontend build artifacts
 	rm -rf web/dist web/node_modules
 
+web-dev-serve: web-install
+	go run ./apiserver/serve/main.go
+
 ##@ Local Development
 
 API_ADDR ?= :8080
