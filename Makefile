@@ -69,7 +69,7 @@ web-dev-serve: web-install
 ##@ Local Development
 
 API_ADDR ?= :8080
-VITE_PORT ?= 5173
+VITE_PORT ?= 11435
 
 API_LOCAL_PORT ?= 8081
 NATS_LOCAL_PORT ?= 4222
@@ -96,7 +96,7 @@ dev-all: ## Start everything locally: channel, runner, Vite, and local NATS
 	@echo "  UI:        http://localhost:$(VITE_PORT)"
 	@echo "============================================"
 	@echo ""
-	$(MAKE) -j4 local-nats web-dev run-channel run-runner 
+	$(MAKE) -j4 local-nats web-dev-serve run-channel run-runner 
 ##@ Release
 
 VERSION_FILE=VERSION

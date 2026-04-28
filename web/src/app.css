@@ -1,1 +1,519 @@
 @import "tailwindcss";
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Surfaces */
+  --warm-bg: #E9E6E1;
+  --warm-bg-deep: #EDE6DC;
+  --cool-bg: #E8ECF1;
+  --shell-bg: #FFFFFF;
+  --chat-bg: #F7F6F3;
+  --chat-rule: #E5E1D8;
+  --rule: #D6CEBC;
+
+  /* Text */
+  --text: #2D2418;
+  --text-mid: #6B5D4F;
+  --text-muted: #9B8E7E;
+
+  /* Brand (derived from app icon) */
+  --brand-teal: #1A4D55;
+  --brand-teal-deep: #133A40;
+  --brand-teal-soft: #265A63;
+  --brand-cream: #FCF3ED;
+
+  /* Accents */
+  --green: #3D6B4F;
+  --green-light: #4E8A65;
+  --terra: #D96023;
+  --terra-light: #D4765A;
+
+  /* Sidebar tokens (cream-on-teal) */
+  --sidebar-bg: var(--brand-teal);
+  --sidebar-text: var(--brand-cream);
+  --sidebar-text-muted: rgba(252, 243, 237, 0.55);
+  --sidebar-rule: rgba(252, 243, 237, 0.10);
+  --row-hover: rgba(252, 243, 237, 0.07);
+  --row-active: rgba(252, 243, 237, 0.14);
+
+  /* Type */
+  --serif: 'Instrument Serif', Georgia, serif;
+  --sans: 'DM Sans', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+}
+
+body {
+  font-family: var(--sans);
+  background: var(--warm-bg);
+  color: var(--text);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.bg {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, var(--warm-bg) 0%, var(--warm-bg) 42%, var(--cool-bg) 72%, var(--cool-bg) 100%);
+  z-index: -1;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.is-spinning {
+  animation: spin 0.8s linear infinite;
+}
+
+/* ============================================================
+   Shell — full-bleed two-column layout (Ramp Inspect style)
+   - .container : flex row, fills the viewport
+   - .sidebar-pane      : left sidebar column (teal)
+   - .detail-pane       : right main column (chat)
+   ============================================================ */
+.container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  background: var(--shell-bg);
+  box-shadow: 0 8px 40px rgba(45, 36, 24, 0.08), 0 2px 8px rgba(45, 36, 24, 0.04);
+  min-height: 0;
+}
+
+.sidebar-pane {
+  width: 280px;
+  flex-shrink: 0;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  border-right: 1px solid var(--brand-teal-deep);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.detail-pane {
+  flex: 1;
+  background: var(--chat-bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ============================================================
+   Sidebar — header, search, scrollable list
+   ============================================================ */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem 0.5rem;
+  flex-shrink: 0;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-weight: 400;
+  color: var(--sidebar-text);
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.brand svg {
+  width: 22px;
+  height: 22px;
+}
+
+.header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: currentColor;
+  opacity: 0.7;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.icon-btn:hover:not(:disabled) {
+  opacity: 1;
+  background: var(--row-hover);
+}
+
+.icon-btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.icon-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--brand-cream);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand-teal-deep);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid rgba(252, 243, 237, 0.2);
+}
+
+.search {
+  margin: 0.25rem 0.85rem 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  background: rgba(252, 243, 237, 0.06);
+  border: 1px solid transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.search:focus-within {
+  background: rgba(252, 243, 237, 0.12);
+  border-color: rgba(252, 243, 237, 0.18);
+}
+
+.search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  color: var(--sidebar-text);
+}
+
+.search input::placeholder {
+  color: var(--sidebar-text-muted);
+}
+
+.search svg {
+  width: 14px;
+  height: 14px;
+  color: var(--sidebar-text-muted);
+}
+
+.section-label {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sidebar-text-muted);
+  padding: 0.85rem 1rem 0.35rem;
+}
+
+/* Scrollable list of session rows inside .sidebar-pane */
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.25rem 0;
+}
+
+.row {
+  cursor: pointer;
+  margin: 1px 0.5rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 6px;
+  transition: background 0.15s;
+  display: block;
+  border: none;
+  background: transparent;
+  text-align: left;
+  width: calc(100% - 1rem);
+  color: var(--sidebar-text);
+}
+
+.row:hover {
+  background: var(--row-hover);
+}
+
+.row.active {
+  background: var(--row-active);
+}
+
+.row-title {
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--sidebar-text);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row-meta {
+  font-size: 0.72rem;
+  color: var(--sidebar-text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-empty {
+  text-align: center;
+  color: var(--sidebar-text-muted);
+  font-size: 0.78rem;
+  padding: 2rem 1rem;
+}
+
+/* ============================================================
+   Detail pane — header + scrollable message stream
+   ============================================================ */
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--chat-rule);
+  background: var(--warm-bg);
+  flex-shrink: 0;
+}
+
+.detail-title {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.detail-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.detail-header .icon-btn {
+  color: var(--text-mid);
+  opacity: 1;
+}
+
+.detail-header .icon-btn:hover:not(:disabled) {
+  color: var(--terra);
+  background: rgba(217, 96, 35, 0.08);
+}
+
+/* Scrollable message stream inside .detail-pane */
+.session-detail {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem 1.75rem;
+}
+
+/* ============================================================
+   Chat messages — avatar + bubble (square-ish corners, Ramp-ish)
+   ============================================================ */
+.msg-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  width: 100%;
+}
+
+.msg-row.is-user {
+  flex-direction: row-reverse;
+}
+
+.msg-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--chat-rule);
+  background: var(--shell-bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.msg-avatar.is-agent {
+  background: var(--brand-teal);
+  color: var(--brand-cream);
+  border-color: var(--brand-teal-deep);
+}
+
+.msg-avatar.is-user {
+  background: var(--brand-cream);
+  color: var(--brand-teal-deep);
+}
+
+.msg-avatar svg {
+  width: 18px;
+  height: 18px;
+}
+
+.msg-bubble {
+  max-width: calc(100% - 44px);
+  padding: 0.95rem 1.15rem;
+  border-radius: 6px;
+  font-family: var(--sans);
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--text);
+  word-break: break-word;
+  border: 1px solid var(--chat-rule);
+  background: var(--shell-bg);
+  box-shadow: 0 1px 2px rgba(45, 36, 24, 0.03);
+}
+
+.msg-bubble.is-user {
+  background: rgba(217, 96, 35, 0.06);
+  border-color: var(--terra-light);
+}
+
+.msg-bubble :first-child {
+  margin-top: 0;
+}
+
+.msg-bubble :last-child {
+  margin-bottom: 0;
+}
+
+/* ============================================================
+   Empty state (no session selected)
+   ============================================================ */
+.empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.empty-card {
+  width: min(520px, 90%);
+  background: var(--shell-bg);
+  border: 1px solid var(--chat-rule);
+  border-radius: 6px;
+  padding: 0.9rem 1rem;
+  box-shadow: 0 4px 20px rgba(45, 36, 24, 0.05);
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+/* ============================================================
+   Markdown rendered inside message bubbles
+   ============================================================ */
+.md p { margin: 0; }
+
+.md p + p,
+.md p + ul,
+.md p + ol,
+.md p + pre {
+  margin-top: 0.5rem;
+}
+
+.md ul,
+.md ol {
+  padding-left: 1.25rem;
+  margin: 0.25rem 0;
+}
+
+.md li { margin: 0.15rem 0; }
+
+.md a {
+  color: var(--terra);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.md code {
+  font-family: var(--mono);
+  font-size: 0.78em;
+  background: var(--warm-bg-deep);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.md pre {
+  font-family: var(--mono);
+  font-size: 0.78em;
+  background: var(--warm-bg-deep);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+
+.md pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.md strong { font-weight: 600; }
+.md em { font-style: italic; }
+
+.md h1,
+.md h2,
+.md h3 {
+  font-weight: 500;
+  margin: 0.6rem 0 0.3rem;
+  line-height: 1.2;
+}
+
+.md h1 { font-size: 1.25rem; }
+.md h2 { font-size: 1.1rem; }
+.md h3 { font-size: 1rem; }
+
+/* ============================================================
+   Responsive — collapse two columns to stacked rows
+   ============================================================ */
+@media (max-width: 900px) {
+  .container {
+    flex-direction: column;
+  }
+
+  .sidebar-pane {
+    width: 100%;
+    height: auto;
+    max-height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid var(--brand-teal-deep);
+  }
+
+  .detail-pane {
+    width: 100%;
+  }
+
+  .session-detail {
+    padding: 1rem 1rem;
+  }
+}

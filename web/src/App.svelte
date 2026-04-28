@@ -1,28 +1,31 @@
-<script>
-  import Header from './components/Header.svelte'
-  import SessionList from './components/SessionList.svelte'
-  import SessionDetail from './components/SessionDetail.svelte'
-  import { refreshSessions, selectedId, selectedSession } from './lib/stores/sessions.js'
+<script lang="ts">
+  import SessionList from "./components/SessionList.svelte";
+  import SessionDetail from "./components/SessionDetail.svelte";
+  import { refreshSessions, selectedSession } from "./lib/stores/sessions";
 
   $effect(() => {
-    refreshSessions()
-    const interval = setInterval(refreshSessions, 3000)
-    return () => clearInterval(interval)
-  })
+    refreshSessions();
+  });
 </script>
 
-<div class="h-screen overflow-hidden grid grid-rows-[44px_1fr] grid-cols-[300px_1fr]">
-  <div class="col-span-2">
-    <Header />
-  </div>
-  <SessionList />
-  <main class="flex flex-col overflow-hidden">
-    {#if $selectedSession}
-      <SessionDetail />
-    {:else}
-      <div class="p-16 text-center text-sm text-gray-400">
-        ← select a session to inspect
-      </div>
-    {/if}
+<div class="bg"></div>
+
+<div class="min-h-screen flex flex-col">
+  <main class="flex-1 min-h-0 flex">
+    <div class="container">
+      <aside class="sidebar-pane">
+        <SessionList />
+      </aside>
+
+      <section class="detail-pane">
+        {#if $selectedSession}
+          <SessionDetail />
+        {:else}
+          <div class="empty-state">
+            <div class="empty-card">Ask or build anything</div>
+          </div>
+        {/if}
+      </section>
+    </div>
   </main>
 </div>

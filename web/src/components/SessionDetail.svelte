@@ -1,32 +1,49 @@
-<script>
-  import { selectedSession } from '../lib/stores/sessions.js'
-  import StepTrace from './StepTrace.svelte'
+<script lang="ts">
+  import { selectedSession, removeSession } from "../lib/stores/sessions";
+  import StepTrace from "./StepTrace.svelte";
 
-  function fmtDur(ms) {
-    return ms < 1000 ? ms + 'ms' : (ms / 1000).toFixed(1) + 's'
+  function handleDelete() {
+    const s = $selectedSession;
+    if (!s) return;
+    if (confirm(`Delete session "${s.name || s.id}"?`)) {
+      removeSession(s.id);
+    }
   }
 </script>
 
 {#if $selectedSession}
   {@const s = $selectedSession}
-  <div class="px-6 pt-5 pb-3 border-b">
-    <div class="text-base font-medium mb-2">{s.prompt}</div>
-    <div class="flex gap-2 flex-wrap text-xs">
-      <span class="px-1.5 py-0.5 rounded border {s.status === 'success' ? 'text-green-600 border-green-300' : 'text-red-600 border-red-300'}">{s.status}</span>
-      <span class="px-1.5 py-0.5 rounded border text-gray-500">{s.model}</span>
-      <span class="px-1.5 py-0.5 rounded border text-gray-500">{fmtDur(s.duration_ms)}</span>
-      <span class="px-1.5 py-0.5 rounded border text-gray-500">{s.tokens_used?.toLocaleString()} tokens</span>
+
+  <header class="detail-header">
+    <span class="detail-title">
+      {s.contexts?.[0]?.name || s.name || s.id}
+    </span>
+    <div class="detail-actions">
+      <button
+        class="icon-btn"
+        title="Delete session"
+        aria-label="Delete session"
+        onclick={handleDelete}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+          <path d="M10 11v6" />
+          <path d="M14 11v6" />
+          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+        </svg>
+      </button>
     </div>
-  </div>
+  </header>
 
-  <div class="flex-1 overflow-y-auto px-6 pt-5 pb-8">
-    <StepTrace messages={s.messages || []} sessionId={s.id} />
-
-    {#if s.final_message}
-      <div class="mt-6 border rounded-lg p-3">
-        <div class="text-xs uppercase tracking-widest text-gray-400 mb-2">final response</div>
-        <div class="text-sm leading-relaxed whitespace-pre-wrap">{s.final_message}</div>
-      </div>
-    {/if}
+  <div class="session-detail">
+    <StepTrace records={s.records || []} />
   </div>
 {/if}
