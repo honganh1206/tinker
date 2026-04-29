@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/honganh1206/tinker/eventbus"
-	"github.com/honganh1206/tinker/logger"
-	"github.com/honganh1206/tinker/mcp"
-	"github.com/honganh1206/tinker/storage"
+	"github.com/honganh1206/tinker/internal/eventbus"
+	"github.com/honganh1206/tinker/internal/logger"
+	"github.com/honganh1206/tinker/internal/mcp"
+	"github.com/honganh1206/tinker/internal/storage"
 )
 
 // upgrader upgrades HTTP requests to WebSocket protocol via a handshake
@@ -163,6 +163,7 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
+	// TODO: To be done when we integrate /ws/stream endpoint to the web UI
 	events, err := s.eventbus.Subscribe(ctx, eventbus.TopicAgentStreamChunk)
 	if err != nil {
 		s.log.Error("failed to subscribe to events", "error", err)

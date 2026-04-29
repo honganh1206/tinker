@@ -6,10 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/honganh1206/tinker/apiserver"
-	"github.com/honganh1206/tinker/eventbus"
-	"github.com/honganh1206/tinker/logger"
-	"github.com/honganh1206/tinker/web"
+	"github.com/honganh1206/tinker/internal/apiserver"
+	"github.com/honganh1206/tinker/internal/eventbus"
+	"github.com/honganh1206/tinker/internal/logger"
+	"github.com/honganh1206/tinker/internal/web"
 )
 
 func main() {

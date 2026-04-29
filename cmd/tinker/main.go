@@ -5,12 +5,12 @@ import (
 	_ "embed"
 	"os"
 
-	"github.com/honganh1206/tinker/cmd"
+	"github.com/honganh1206/tinker/internal/cli"
 )
 
 func main() {
-	cli := cmd.NewCLI()
-	err := cli.ExecuteContext(context.Background())
+	root := cli.NewCLI()
+	err := root.ExecuteContext(context.Background())
 	if err != nil {
 		os.Exit(1)
 	}

@@ -8,8 +8,8 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
-	"github.com/honganh1206/tinker/storage"
-	"github.com/honganh1206/tinker/tools"
+	"github.com/honganh1206/tinker/internal/storage"
+	"github.com/honganh1206/tinker/internal/tools"
 )
 
 const (

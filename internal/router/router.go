@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/honganh1206/tinker/channel"
-	"github.com/honganh1206/tinker/eventbus"
-	"github.com/honganh1206/tinker/logger"
+	"github.com/honganh1206/tinker/internal/channel"
+	"github.com/honganh1206/tinker/internal/eventbus"
+	"github.com/honganh1206/tinker/internal/logger"
 )
 
 type Router struct {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/honganh1206/tinker/storage"
+	"github.com/honganh1206/tinker/internal/storage"
 	"github.com/stretchr/testify/assert"
 )
 

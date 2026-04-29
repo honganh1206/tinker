@@ -3,7 +3,7 @@ package model
 import (
 	"context"
 
-	"github.com/honganh1206/tinker/storage"
+	"github.com/honganh1206/tinker/internal/storage"
 	_ "github.com/mattn/go-sqlite3"
 )
 

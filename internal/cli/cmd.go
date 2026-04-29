@@ -1,11 +1,11 @@
-package cmd
+package cli
 
 import (
 	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/honganh1206/tinker/mcp"
+	"github.com/honganh1206/tinker/internal/mcp"
 	"github.com/spf13/cobra"
 )
 

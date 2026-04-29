@@ -11,8 +11,8 @@ import (
 	_ "embed"
 
 	"github.com/google/uuid"
-	"github.com/honganh1206/tinker/storage"
-	"github.com/honganh1206/tinker/tools"
+	"github.com/honganh1206/tinker/internal/storage"
+	"github.com/honganh1206/tinker/internal/tools"
 	_ "github.com/mattn/go-sqlite3"
 )
 

@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/honganh1206/tinker/agent"
-	"github.com/honganh1206/tinker/channel"
-	"github.com/honganh1206/tinker/eventbus"
-	"github.com/honganh1206/tinker/logger"
-	"github.com/honganh1206/tinker/model"
-	"github.com/honganh1206/tinker/storage"
-	"github.com/honganh1206/tinker/tools"
+	"github.com/honganh1206/tinker/internal/agent"
+	"github.com/honganh1206/tinker/internal/channel"
+	"github.com/honganh1206/tinker/internal/eventbus"
+	"github.com/honganh1206/tinker/internal/logger"
+	"github.com/honganh1206/tinker/internal/model"
+	"github.com/honganh1206/tinker/internal/storage"
+	"github.com/honganh1206/tinker/internal/tools"
 )
 
 func main() {

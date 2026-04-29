@@ -3,7 +3,7 @@ package channel
 import (
 	"context"
 
-	"github.com/honganh1206/tinker/eventbus"
+	"github.com/honganh1206/tinker/internal/eventbus"
 )
 
 // InboundMessage represents a message received from an external channel.

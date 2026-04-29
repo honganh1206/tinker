@@ -11,6 +11,7 @@ GOMOD = $(GOCMD) mod
 BIN_DIR=./bin
 
 CHANNELS = discord
+BINARIES = tinker apiserver runner
 
 all: test build
 
@@ -22,10 +23,10 @@ help: ## Display this help
 build: $(addprefix build-,$(BINARIES)) $(addprefix build-channel-,$(CHANNELS)) ## Build all binaries
 
 build-channel-%: ## Build a specific channel binary
-	$(GOBUILD) -o $(BIN_DIR)/channel-$* ./channel/$*/
+	$(GOBUILD) -o $(BIN_DIR)/channel-$* ./cmd/channel/$*/
 
-build-%: ## Build a specific binary (e.g., make build-controller)
-	$(GOBUILD) -o $(BIN_DIR)/$* ./$*/
+build-%: ## Build a specific binary (e.g., make build-tinker)
+	$(GOBUILD) -o $(BIN_DIR)/$* ./cmd/$*/
 
 test: 
 	$(GOTEST) ./...
@@ -52,19 +53,19 @@ tidy: ## Run go mod tidy
 ##@ Web UI
 
 web-install: ## Install frontend dependencies
-	cd web && npm ci
+	cd internal/web && npm ci
 
 web-build: web-install ## Build the frontend for embedding
-	cd web && npm run build
+	cd internal/web && npm run build
 
 web-dev: web-install ## Start the frontend dev server (hot-reload, proxy to :8080)
-	cd web && npm run dev
+	cd internal/web && npm run dev
 
 web-clean: ## Remove frontend build artifacts
-	rm -rf web/dist web/node_modules
+	rm -rf internal/web/dist internal/web/node_modules
 
 web-dev-serve: web-install
-	go run ./apiserver/serve/main.go
+	go run ./cmd/apiserver/
 
 ##@ Local Development
 

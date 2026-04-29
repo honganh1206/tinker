@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/honganh1206/tinker/mcp"
+	"github.com/honganh1206/tinker/internal/mcp"
 )
 
 // MCPToolRunner adapts an MCP manager call into the tools.ToolRunner interface.

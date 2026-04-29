@@ -8,11 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/honganh1206/tinker/logger"
-	"github.com/honganh1206/tinker/mcp"
-	"github.com/honganh1206/tinker/model"
-	"github.com/honganh1206/tinker/storage"
-	"github.com/honganh1206/tinker/tools"
+	"github.com/honganh1206/tinker/internal/logger"
+	"github.com/honganh1206/tinker/internal/mcp"
+	"github.com/honganh1206/tinker/internal/model"
+	"github.com/honganh1206/tinker/internal/storage"
+	"github.com/honganh1206/tinker/internal/tools"
 )
 
 // mockModel implements model.Model for testing.

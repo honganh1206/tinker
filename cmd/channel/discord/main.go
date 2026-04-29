@@ -14,10 +14,10 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/honganh1206/tinker/channel"
-	"github.com/honganh1206/tinker/eventbus"
-	"github.com/honganh1206/tinker/logger"
-	"github.com/honganh1206/tinker/router"
+	"github.com/honganh1206/tinker/internal/channel"
+	"github.com/honganh1206/tinker/internal/eventbus"
+	"github.com/honganh1206/tinker/internal/logger"
+	"github.com/honganh1206/tinker/internal/router"
 )
 
 type DiscordChannel struct {

@@ -17,7 +17,7 @@ build() {
   echo "Building for $os/$arch (version: $version) -> $output_name"
   # TODO: On darwin/macos we need clang
   # On windows gcc does not recognize -mthreads and it must be -pthread
-  CGO_ENABLED=1 GOOS=$os GOARCH=$arch go build -o "dist/${version}/${output_name}" -ldflags "-X github.com/honganh1206/tinker/cmd.Version=$version -X github.com/honganh1206/tinker/cmd.GitCommit=$sha1" main.go
+  CGO_ENABLED=1 GOOS=$os GOARCH=$arch go build -o "dist/${version}/${output_name}" -ldflags "-X github.com/honganh1206/tinker/internal/cli.Version=$version -X github.com/honganh1206/tinker/internal/cli.GitCommit=$sha1" ./cmd/tinker
 }
 
 targets=(

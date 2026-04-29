@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/honganh1206/tinker/logger"
-	"github.com/honganh1206/tinker/mcp"
-	"github.com/honganh1206/tinker/model"
-	"github.com/honganh1206/tinker/tools"
+	"github.com/honganh1206/tinker/internal/logger"
+	"github.com/honganh1206/tinker/internal/mcp"
+	"github.com/honganh1206/tinker/internal/model"
+	"github.com/honganh1206/tinker/internal/tools"
 )
 
 type Agent struct {

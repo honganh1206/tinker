@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/honganh1206/tinker/mcp"
-	"github.com/honganh1206/tinker/storage"
+	"github.com/honganh1206/tinker/internal/mcp"
+	"github.com/honganh1206/tinker/internal/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
