@@ -40,11 +40,7 @@
 
 <header class="sidebar-header">
   <span class="brand">
-    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="40" height="40" rx="8" fill="#1A4D55" />
-      <circle cx="20" cy="20" r="11" fill="#FCF3ED" />
-      <circle cx="25" cy="18" r="3" fill="#1A4D55" />
-    </svg>
+    <img src="/icon-192.png" alt="" class="brand-mark" width="22" height="22" />
     Tinker
   </span>
   <div class="header-actions">

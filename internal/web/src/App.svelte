@@ -8,11 +8,9 @@
   });
 </script>
 
-<div class="bg"></div>
-
 <div class="min-h-screen flex flex-col">
   <main class="flex-1 min-h-0 flex">
-    <div class="container">
+    <div class="app-shell">
       <aside class="sidebar-pane">
         <SessionList />
       </aside>

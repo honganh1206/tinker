@@ -23,11 +23,7 @@
 </script>
 
 {#if records.length === 0}
-  <div
-    class="text-[var(--text-muted)] font-[var(--mono)] text-[0.78rem] text-center pt-8"
-  >
-    No records yet
-  </div>
+  <div class="trace-row__empty">No records yet</div>
 {:else}
   <div class="flex flex-col gap-5 mx-auto w-full">
     {#each records as r (r.id)}
@@ -43,30 +39,21 @@
         <!-- agent: avatar on left, bubble on left -->
         <div class="msg-row">
           <div class="msg-avatar is-agent" aria-hidden="true">
-            <svg
-              viewBox="0 0 40 40"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <circle cx="20" cy="20" r="13" fill="#FCF3ED" />
-              <circle cx="26" cy="17" r="3.5" fill="#1A4D55" />
-            </svg>
+            <img src="/icon-192.png" alt="" width="32" height="32" />
           </div>
-          <div class="msg-bubble is-agent md">
+          <div class="msg-bubble md">
             {@html renderMarkdown(r.content)}
           </div>
         </div>
       {:else if r.source === RecordType.ToolUse}
-        <!-- tool use: inline line, terra, wrench icon -->
-        <div
-          class="flex items-start gap-2 font-[var(--mono)] text-[0.75rem] text-[var(--terra)] pl-1"
-        >
-          <Wrench size={13} class="mt-0.5 flex-shrink-0" />
-          <div class="flex-1 break-all">
+        <!-- tool use: secondary text + thin left rule + wrench icon -->
+        <div class="trace-row trace-row--tool">
+          <Wrench size={13} class="trace-row__icon" />
+          <div class="trace-row__body">
             {expanded[r.id] ? r.content : truncate(r.content, 220)}
             {#if r.content.length > 220}
               <button
-                class="ml-2 text-[var(--text-muted)] hover:text-[var(--terra)] cursor-pointer text-[0.7rem] underline-offset-2 hover:underline"
+                class="trace-row__toggle"
                 onclick={() => toggleExpand(r.id)}
               >
                 {expanded[r.id] ? "collapse" : "expand"}
@@ -75,16 +62,14 @@
           </div>
         </div>
       {:else if r.source === RecordType.ToolResult}
-        <!-- tool result: inline line, green, corner-down-right icon -->
-        <div
-          class="flex items-start gap-2 font-[var(--mono)] text-[0.75rem] text-[var(--green)] pl-1"
-        >
-          <CornerDownRight size={13} class="mt-0.5 flex-shrink-0" />
-          <div class="flex-1 break-all">
+        <!-- tool result: accent green + corner-down-right icon -->
+        <div class="trace-row trace-row--result">
+          <CornerDownRight size={13} class="trace-row__icon" />
+          <div class="trace-row__body">
             {expanded[r.id] ? r.content : truncate(r.content, 220)}
             {#if r.content.length > 220}
               <button
-                class="ml-2 text-[var(--text-muted)] hover:text-[var(--green)] cursor-pointer text-[0.7rem] underline-offset-2 hover:underline"
+                class="trace-row__toggle"
                 onclick={() => toggleExpand(r.id)}
               >
                 {expanded[r.id] ? "collapse" : "expand"}
@@ -93,14 +78,9 @@
           </div>
         </div>
       {:else if r.source === RecordType.SystemPrompt}
-        <!-- system prompt: muted, collapsed by default -->
-        <div
-          class="font-[var(--mono)] text-[0.7rem] text-[var(--text-muted)] pl-1"
-        >
-          <button
-            class="cursor-pointer hover:text-[var(--text-mid)] uppercase tracking-[0.05em] inline-flex items-center gap-1"
-            onclick={() => toggleExpand(r.id)}
-          >
+        <!-- system prompt: tertiary, collapsed by default -->
+        <div class="trace-row--system">
+          <button onclick={() => toggleExpand(r.id)}>
             {#if expanded[r.id]}
               <ChevronDown size={12} />
             {:else}
@@ -109,16 +89,11 @@
             system prompt · {r.est_tokens} tokens
           </button>
           {#if expanded[r.id]}
-            <pre
-              class="mt-1.5 whitespace-pre-wrap break-all text-[var(--text-muted)] leading-[1.55]">{r.content}</pre>
+            <pre>{r.content}</pre>
           {/if}
         </div>
       {:else}
-        <div
-          class="font-[var(--mono)] text-[0.75rem] text-[var(--text-muted)] pl-1 break-all"
-        >
-          {r.content}
-        </div>
+        <div class="trace-row--fallback">{r.content}</div>
       {/if}
     {/each}
   </div>

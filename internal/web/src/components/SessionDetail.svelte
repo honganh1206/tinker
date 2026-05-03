@@ -44,6 +44,8 @@
   </header>
 
   <div class="session-detail">
-    <StepTrace records={s.records || []} />
+    <div class="session-detail-inner">
+      <StepTrace records={s.records || []} />
+    </div>
   </div>
 {/if}

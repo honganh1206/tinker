@@ -38,6 +38,7 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
+    needs: frontend
     steps:
       - uses: actions/checkout@v4
 
@@ -45,6 +46,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: internal/web/dist
 
       - name: Check formatting
         run: |
