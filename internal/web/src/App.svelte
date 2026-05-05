@@ -27,3 +27,37 @@
     </div>
   </main>
 </div>
+
+<style>
+  .empty-state {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-8);
+  }
+
+  .empty-card {
+    width: min(520px, 90%);
+    background: var(--color-surface-base);
+    border: 1px solid var(--color-border-accent);
+    border-radius: var(--radius-xl);
+    padding: var(--space-6);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    /* inherits --color-text-body */
+    font-family: var(--font-family-display);
+    font-size: 0.92rem;
+
+    &::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: var(--radius-full);
+      background: var(--color-action-primary);
+      box-shadow: 0 0 0 3px var(--green-30);
+      flex-shrink: 0;
+    }
+  }
+</style>

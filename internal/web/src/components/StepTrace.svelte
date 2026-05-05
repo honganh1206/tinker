@@ -98,3 +98,188 @@
     {/each}
   </div>
 {/if}
+
+<style>
+  /* ============================================================
+     Chat messages — avatar + bubble
+     ============================================================ */
+  .msg-row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    width: 100%;
+
+    &.is-user {
+      flex-direction: row-reverse;
+    }
+  }
+
+  .msg-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-full);
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-surface-raised);
+    color: var(--color-text-primary);
+    overflow: hidden;
+
+    &.is-agent {
+      background: transparent;
+      border-color: transparent;
+    }
+
+    &.is-user {
+      background: var(--color-action-primary);
+      color: var(--black);
+      border-color: var(--color-action-primary);
+    }
+
+    & img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+  }
+
+  .msg-bubble {
+    max-width: calc(100% - 44px);
+    padding: var(--space-4) var(--space-5);
+    border-radius: var(--radius-lg);
+    font-family: var(--font-family-ui);
+    font-size: 0.88rem;
+    line-height: 1.6;
+    /* inherits --color-text-body; .md headings re-assert white globally */
+    word-break: break-word;
+    border: 1px solid var(--color-border-subtle);
+    background: var(--ground);
+
+    &.is-user {
+      background: var(--color-accent-tint-soft);
+      border-color: var(--green-30);
+    }
+
+    /* `{@html ...}` content — escape Svelte's scope hash so the rules
+       hit the rendered markdown nodes. */
+    & :global(:first-child) { margin-top: 0; }
+    & :global(:last-child) { margin-bottom: 0; }
+  }
+
+  /* ============================================================
+     Trace rows — tool use, tool result, system prompt, fallback
+     ============================================================ */
+  .trace-row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding-left: var(--space-1);
+    font-family: var(--font-family-code);
+    font-size: 0.75rem;
+    line-height: 1.55;
+  }
+
+  /* Lucide renders the icon inside its own <svg>; the class travels through
+     as a prop, so target it globally to bypass Svelte's scope hash. */
+  :global(.trace-row__icon) {
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  .trace-row__body {
+    flex: 1;
+    word-break: break-all;
+  }
+
+  .trace-row__toggle {
+    margin-left: var(--space-2);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 0.7rem;
+    color: var(--color-text-tertiary);
+    font-family: inherit;
+    transition: color var(--motion-duration-fast) var(--motion-ease);
+
+    &:hover {
+      color: var(--color-action-primary);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+  }
+
+  /* Tool invocation — secondary text + thin left rule */
+  .trace-row--tool {
+    color: var(--color-text-secondary);
+    border-left: 2px solid var(--color-border-subtle);
+    padding-left: 10px;
+    margin-left: 0;
+  }
+
+  /* Tool result — accent green */
+  .trace-row--result {
+    color: var(--color-action-primary);
+
+    & .trace-row__toggle:hover {
+      color: var(--color-action-primary);
+    }
+  }
+
+  /* System prompt — collapsed, tertiary */
+  .trace-row--system {
+    font-size: 0.7rem;
+    color: var(--color-text-tertiary);
+    padding-left: var(--space-1);
+    display: block;
+
+    & button {
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-1);
+      background: transparent;
+      border: none;
+      color: inherit;
+      font-family: inherit;
+      font-size: inherit;
+      transition: color var(--motion-duration-fast) var(--motion-ease);
+
+      &:hover {
+        color: var(--color-text-secondary);
+      }
+    }
+
+    & pre {
+      margin-top: 6px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: var(--color-text-tertiary);
+      line-height: 1.55;
+      font-family: var(--font-family-code);
+    }
+  }
+
+  .trace-row--fallback {
+    font-family: var(--font-family-code);
+    font-size: 0.75rem;
+    color: var(--color-text-tertiary);
+    padding-left: var(--space-1);
+    word-break: break-all;
+  }
+
+  .trace-row__empty {
+    color: var(--color-text-tertiary);
+    font-family: var(--font-family-code);
+    font-size: 0.78rem;
+    text-align: center;
+    padding-top: var(--space-8);
+  }
+</style>
