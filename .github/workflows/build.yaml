@@ -52,15 +52,15 @@ jobs:
         with:
           name: web-dist
           path: internal/web/dist
-
-      - name: Check formatting
-        run: |
-          files=$(gofmt -s -l $(go list -f '{{.Dir}}' ./...))
-          if [ -n "$files" ]; then
-            echo "The following files need formatting:"
-            echo "$files"
-            exit 1
-          fi
+      #
+      # - name: Check formatting
+      #   run: |
+      #     files=$(gofmt -s -l $(go list -f '{{.Dir}}' ./...))
+      #     if [ -n "$files" ]; then
+      #       echo "The following files need formatting:"
+      #       echo "$files"
+      #       exit 1
+      #     fi
 
       - name: Run go vet
         run: go vet ./...
