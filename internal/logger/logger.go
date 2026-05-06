@@ -38,3 +38,14 @@ func (l *Logger) Error(msg string, args ...any) {
 func (l *Logger) Debug(msg string, args ...any) {
 	l.Log.Debug(msg, args...)
 }
+
+// Fatal logs at error level and exits with status 1.
+func (l *Logger) Fatal(msg string, args ...any) {
+	l.Log.Error(msg, args...)
+	os.Exit(1)
+}
+
+// With returns a Logger that includes the given attributes in every record.
+func (l *Logger) With(args ...any) *Logger {
+	return &Logger{Log: l.Log.With(args...)}
+}

@@ -10,13 +10,13 @@ type Metrics struct {
 
 func (m *Metrics) Add(n int) {
 	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.total += n
-	m.mu.Unlock()
 }
 
 func (m *Metrics) Total() int {
 	m.mu.Lock()
+	defer m.mu.Unlock()
 	n := m.total
-	m.mu.Unlock()
 	return n
 }

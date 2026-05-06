@@ -47,6 +47,11 @@ To interact with the agent through Discord, set up a Discord bot and run the Dis
 
 6. In Discord, mention the bot (`@your-bot your prompt`) in any channel it can read. The channel will create a thread for the conversation; reply inside the thread (mentioning the bot) to continue.
 
+
+## Sandbox
+
+Execute `go generate ./...` to fetch the binary dependencies
+
 ## MCP
 
 To add MCP servers:
