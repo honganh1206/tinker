@@ -95,7 +95,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/go/pkg/mod
-          key: ${{ ruunner.os }}-${{ runner.arch }}-go-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-{{ runner.arch }}-go-
 
