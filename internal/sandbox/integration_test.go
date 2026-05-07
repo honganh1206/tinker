@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/honganh1206/tinker/internal/logger"
+	"github.com/sirupsen/logrus"
 )
 
 // TestVMIntegrationWithRealBinaries tests VM creation with real Firecracker and vmlinux binaries.
@@ -51,7 +51,7 @@ func TestVMIntegrationWithRealBinaries(t *testing.T) {
 		Rootfs:   rootfsPath,
 	}
 
-	manager, err := NewManager(config, logger.NewDefaultLogger())
+	manager, err := NewManager(config, logrus.New())
 	if err != nil {
 		t.Fatalf("Failed to create VM manager: %v", err)
 	}

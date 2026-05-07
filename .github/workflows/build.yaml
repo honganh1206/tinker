@@ -71,15 +71,39 @@ jobs:
   #         version: latest
 
   test:
-    runs-on: ubuntu-latest
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-24.04
+        go-version:
+          - "1.25.1"
     needs: frontend
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out code
+        uses: actions/checkout@v4
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: ${{ matrix.go-version }}
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ ruunner.os }}-${{ runner.arch }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-{{ runner.arch }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Generate binaries
+        run: go generate ./...
 
       - name: Download frontend dist
         uses: actions/download-artifact@v4
@@ -115,31 +139,31 @@ jobs:
       #   run: go test -bench=. -benchmem -run=^$ ./...
       #   continue-on-error: true
 
-  build:
-    runs-on: ubuntu-latest
-    needs: frontend
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Download frontend dist
-        uses: actions/download-artifact@v4
-        with:
-          name: web-dist
-          path: internal/web/dist
-
-      - name: Build
-        run: bash ./scripts/build.sh
-
-      - name: Archive artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/
-          retention-days: 1
+  # build:
+  #   runs-on: ubuntu-latest
+  #   needs: frontend
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+  #
+  #     - name: Setup Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version-file: go.mod
+  #
+  #     - name: Download frontend dist
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: web-dist
+  #         path: internal/web/dist
+  #
+  #     - name: Build
+  #       run: bash ./scripts/build.sh
+  #
+  #     - name: Archive artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: dist
+  #         path: dist/
+  #         retention-days: 1

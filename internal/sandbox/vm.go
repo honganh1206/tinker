@@ -11,7 +11,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/honganh1206/tinker/internal/logger"
+	firecracker "github.com/firecracker-microvm/firecracker-go-sdk"
+	"github.com/firecracker-microvm/firecracker-go-sdk/client/models"
+	"github.com/sirupsen/logrus"
 )
 
 // VM represents a single Firecracker microVM instance
@@ -21,9 +23,10 @@ type VM struct {
 	IP         net.IP
 	SocketPath string
 	PIDFile    string
-	process    *exec.Cmd
+	machine    *firecracker.Machine
 	config     *Config
 	dataDir    string
+	logger     *logrus.Entry
 }
 
 // Manager manages the lifecycle of Firecracker VMs
@@ -31,10 +34,10 @@ type Manager struct {
 	config *Config
 	vms    map[string]*VM
 	ipPool *IPPool
-	logger *logger.Logger
+	logger logrus.FieldLogger
 }
 
-func NewManager(config *Config, logger *logger.Logger) (*Manager, error) {
+func NewManager(config *Config, logger logrus.FieldLogger) (*Manager, error) {
 	ipNet, err := config.GetVMIPRange()
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse VM IP range: %w", err)
@@ -77,6 +80,7 @@ func (m *Manager) CreateVM(ctx context.Context, userID string, firecrackerBinary
 		PIDFile:    filepath.Join(vmDataDir, "firecracker.pid"),
 		config:     m.config,
 		dataDir:    vmDataDir,
+		logger:     m.logger.WithField("vm_id", vmID),
 	}
 
 	firecrackerPath := filepath.Join(vmDataDir, "firecracker")
@@ -108,40 +112,56 @@ func (vm *VM) Start(ctx context.Context) error {
 	// Remove existing socket
 	os.Remove(vm.SocketPath)
 
+	vmlinuxPath := filepath.Join(vm.dataDir, "vmlinux")
 	firecrackerPath := filepath.Join(vm.dataDir, "firecracker")
 
-	// Create Firecracker process
-	vm.process = exec.CommandContext(ctx, firecrackerPath, "--api-sock", vm.SocketPath)
-
-	logFile, err := os.Create(filepath.Join(vm.dataDir, "firecracker.log"))
-	if err != nil {
-		return fmt.Errorf("failed to create log file: %w", err)
+	cfg := firecracker.Config{
+		SocketPath:      vm.SocketPath,
+		KernelImagePath: vmlinuxPath,
+		// Send console output to serial port
+		// Use kernel reboot method instead of hardware reboot
+		// Wait 1 second and reboot in case of kernel panic
+		// Disable Peripheral Component Interconnect
+		KernelArgs: "console=ttyS0 reboot=k panic=1 pci=off",
+		Drives: []models.Drive{
+			{
+				DriveID:      firecracker.String("rootfs"),
+				IsRootDevice: firecracker.Bool(true),
+				IsReadOnly:   firecracker.Bool(false),
+				PathOnHost:   firecracker.String(vm.config.Rootfs),
+			},
+		},
+		MachineCfg: models.MachineConfiguration{
+			VcpuCount:  firecracker.Int64(int64(vm.config.VMCPUs)),
+			MemSizeMib: firecracker.Int64(int64(vm.config.VMMemory)),
+		},
+		// TODO: Add network interface
 	}
 
-	// Write output to log file
-	vm.process.Stdout = logFile
-	vm.process.Stderr = logFile
+	// Custom command to invoke embedded firecracker binary
+	cmd := exec.CommandContext(ctx, firecrackerPath, "--api-sock", vm.SocketPath)
 
-	if err := vm.process.Start(); err != nil {
-		return fmt.Errorf("failed to start Firecracker process: %w", err)
+	machine, err := firecracker.NewMachine(ctx, cfg, firecracker.WithProcessRunner(cmd), firecracker.WithLogger(vm.logger))
+	if err != nil {
+		return fmt.Errorf("failed to create machine: %w", err)
+	}
+
+	vm.machine = machine
+
+	if err := machine.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start machine: %w", err)
 	}
 
 	// Write PID file
-	if err := os.WriteFile(vm.PIDFile, []byte(fmt.Sprintf("%d", vm.process.Process.Pid)), 0o644); err != nil {
-		vm.process.Process.Kill()
+	pid, err := machine.PID()
+	if err != nil {
+		machine.Shutdown(ctx)
+		return fmt.Errorf("failed to get PID: %w", err)
+	}
+
+	if err := os.WriteFile(vm.PIDFile, []byte(fmt.Sprintf("%d", pid)), 0o644); err != nil {
+		machine.Shutdown(ctx)
 		return fmt.Errorf("failed to write PID file: %w", err)
-	}
-
-	// Wait for PID socket to be ready
-	if err := vm.waitforSocket(5 * time.Second); err != nil {
-		vm.process.Process.Kill()
-		return fmt.Errorf("firecracker API socket not ready: %w", err)
-	}
-
-	// Configure the VM via APIs
-	if err := vm.configure(); err != nil {
-		vm.process.Process.Kill()
-		return fmt.Errorf("failed to configure VM: %w", err)
 	}
 
 	return nil
@@ -149,15 +169,12 @@ func (vm *VM) Start(ctx context.Context) error {
 
 // Stop stops the Firecracker process
 func (vm *VM) Stop() error {
-	if vm.process != nil && vm.process.Process != nil {
-		if err := vm.process.Process.Kill(); err != nil {
-			return fmt.Errorf("failed to kill process: %w", err)
+	if vm.machine != nil {
+		ctx := context.Background()
+		if err := vm.machine.Shutdown(ctx); err != nil {
+			return fmt.Errorf("failed to shut down machine: %w", err)
 		}
-		vm.process.Wait()
 	}
-
-	os.Remove(vm.SocketPath)
-	os.Remove(vm.PIDFile)
 
 	return nil
 }

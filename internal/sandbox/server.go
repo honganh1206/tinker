@@ -4,26 +4,24 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/honganh1206/tinker/internal/logger"
+	"github.com/sirupsen/logrus"
 )
 
 // Server represents the sandbox server
 type Server struct {
 	config     *Config
 	vmMamanger *Manager
-	log        *logger.Logger
 }
 
 // NewServer creates a new sandbox server
-func NewServer(config *Config, log *logger.Logger) (*Server, error) {
-	vmMamanger, err := NewManager(config, log)
+func NewServer(config *Config, logger logrus.FieldLogger) (*Server, error) {
+	vmMamanger, err := NewManager(config, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create VM manager: %w", err)
 	}
 	return &Server{
 		config:     config,
 		vmMamanger: vmMamanger,
-		log:        log,
 	}, nil
 }
 

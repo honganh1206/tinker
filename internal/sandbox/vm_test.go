@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/honganh1206/tinker/internal/logger"
+	"github.com/sirupsen/logrus"
 )
 
 func TestNewManager(t *testing.T) {
@@ -18,7 +18,7 @@ func TestNewManager(t *testing.T) {
 		DataDir:  "/tmp/tinker-sandbox-test",
 	}
 
-	manager, err := NewManager(config, logger.NewDefaultLogger())
+	manager, err := NewManager(config, logrus.New())
 	if err != nil {
 		t.Fatalf("Failed to create VM mamanger: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestManagerInvalidCIDR(t *testing.T) {
 		DataDir:  "/tmp/tinker-sandbox-test",
 	}
 
-	_, err := NewManager(config, logger.NewDefaultLogger())
+	_, err := NewManager(config, logrus.New())
 	if err == nil {
 		t.Errorf("Expected error with invalid CIDR")
 	}
@@ -68,7 +68,7 @@ func TestVMCreationFlow(t *testing.T) {
 		DataDir:  tempDir,
 	}
 
-	manager, err := NewManager(config, logger.NewDefaultLogger())
+	manager, err := NewManager(config, logrus.New())
 	if err != nil {
 		t.Fatalf("Failed to create VM manager: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestGetVM(t *testing.T) {
 		DataDir:  tempDir,
 	}
 
-	manager, err := NewManager(config, logger.NewDefaultLogger())
+	manager, err := NewManager(config, logrus.New())
 	if err != nil {
 		t.Fatalf("Failed to create VM manager: %v", err)
 	}

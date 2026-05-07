@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/honganh1206/tinker/internal/logger"
 	"github.com/honganh1206/tinker/internal/sandbox"
+	"github.com/sirupsen/logrus"
 )
+
+var log *logrus.Logger = logrus.StandardLogger()
 
 func main() {
 	var (
@@ -34,7 +36,6 @@ func main() {
 
 	flag.Parse()
 
-	log := logger.NewLogger(os.Stderr, true)
 	log.Info("sandbox starting...")
 
 	if *version {
@@ -55,7 +56,7 @@ func main() {
 		log.Fatal("configuration error", "err", err)
 	}
 
-	srv, err := sandbox.NewServer(config, log)
+	srv, err := sandbox.NewServer(config, logrus.NewEntry(log))
 	if err != nil {
 		log.Fatal("failed to create server", "err", err)
 	}
