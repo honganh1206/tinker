@@ -24,9 +24,9 @@ func NewIPPool(network *net.IPNet) (*IPPool, error) {
 	}
 
 	// Generate all usuable IPs in the network
-	// and skip network and boradcast addresses
+	// and skip network (identifier of subnet), gateway (.1 to route between VMs) and broadcast (send packages to all hosts) addresses
 	for ip := network.IP.Mask(network.Mask); network.Contains(ip); inc(ip) {
-		if !ip.Equal(network.IP) && !isBroadcast(ip, network) {
+		if !ip.Equal(network.IP) && !isBroadcast(ip, network) && !isGateway(ip, network) {
 			pool.available = append(pool.available, copyIP(ip))
 		}
 	}
@@ -83,6 +83,22 @@ func (p *IPPool) IsAllocated(ip net.IP) bool {
 	return p.allocated[ip.String()]
 }
 
+// Gateway returns the gateway IP address (network + 1) for this network
+func (p *IPPool) Gateway() net.IP {
+	gateway := make(net.IP, len(p.network.IP))
+	copy(gateway, p.network.IP.Mask(p.network.Mask))
+
+	// Increment by 1 to get the first host address (gateway)
+	inc(gateway)
+
+	return gateway
+}
+
+// Netmask returns the subnet mask (e.g. 255.255.255.0) for this network
+func (p *IPPool) Netmask() net.IP {
+	return net.IP(p.network.Mask)
+}
+
 // isBroadcast checks if an IP is the broadcast address of the network
 func isBroadcast(ip net.IP, network *net.IPNet) bool {
 	// IP address is a slice of bytes
@@ -112,4 +128,15 @@ func inc(ip net.IP) {
 			break
 		}
 	}
+}
+
+// isGateway checks if an IP is the gateaway address (network + 1) for the network
+func isGateway(ip net.IP, network *net.IPNet) bool {
+	gateway := make(net.IP, len(network.IP))
+	copy(gateway, network.IP.Mask(network.Mask))
+
+	// Inc by 1 to get the 1st host address (gateway)
+	inc(gateway)
+
+	return ip.Equal(gateway)
 }

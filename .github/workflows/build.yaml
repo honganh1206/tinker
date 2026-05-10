@@ -91,19 +91,14 @@ jobs:
           cache: true
           cache-dependency-path: go.sum
 
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-${{ runner.arch }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-{{ runner.arch }}-go-
-
       - name: Download dependencies
         run: go mod download
 
       - name: Generate binaries
         run: go generate ./...
+
+      - name: Add runner to KVM Accept Control List (ACL)
+        run: sudo setf -m u:"$(whoami)":rw /dev/kvm
 
       - name: Download frontend dist
         uses: actions/download-artifact@v4
