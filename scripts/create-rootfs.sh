@@ -25,34 +25,55 @@ trap cleanup EXIT
 # TODO: Can I write a small container runtime for this to not rely on docker?
 docker run -i  --rm \
   -v "$rootfs_dir":/my-rootfs \
-  alpine sh <<EOF
+  alpine sh <<EOS
 set -euo pipefail
 
-apk add --no-cache openrc # Fast init system for Unix-like systems
+# For now we use sh as init process
+# apk add --no-cache openrc # Fast init system for Unix-like systems
 apk add --no-cache util-linux openssh busybox-mdev-openrc
 
 # Set up a simple login terminal on the serial console (ttyS0)
-ln -s agetty /etc/init.d/agetty.ttyS0 # Symlinked init script with agetty to manage virtual terminal lines
-echo ttyS0 > /etc/securetty # Root login via serial
-rc-update add agetty.ttyS0 default
+# ln -s agetty /etc/init.d/agetty.ttyS0 # Symlinked init script with agetty to manage virtual terminal lines
+# echo ttyS0 > /etc/securetty # Root login via serial
+# rc-update add agetty.ttyS0 default
 
 # Ensure special file systems are mounted on boot:
-rc-update add devfs boot
-rc-update add procfs boot
-rc-update add sysfs boot
-rc-update add dmesg boot
-rc-update add mdev boot
+# rc-update add devfs boot
+# rc-update add procfs boot
+# rc-update add sysfs boot
+# rc-update add dmesg boot
+# rc-update add mdev boot
 
-rc-update add sshd default
+# rc-update add sshd default
+
+# Remove message of the day
+rm /etc/motd
 
 # Generate SSH host key before sshd starts
 ssh-keygen -A
 
-# Set root password to "root"
-echo "root:root" | chpasswd
+# Enable SSH root login without password
+passwd -d root
 
 # Enable SSH root login with password
 sed -i 's/^#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+sed -i 's/^#PermitEmptyPassword.*/PermitEmptyPassword yes/' /etc/ssh/sshd_config
+
+# Custom init script for minimal unix-like system instead of openrc
+cat >/sbin/init-sshvm <<'EOF'
+#!/bin/sh
+# Run as PID 1
+set -euo pipefail
+mkdir -p /var/empty /var/log /dev/pts # daemons, log storage, pseudo terminals for SSH sessions
+mount -t proc proc /proc # Process and kernel info
+mount -t sysfs sysfs /sys # Device and kernel subsystem info
+mount -t devpts devpts /dev/pts # Enable pseudo terminals
+
+# Entropy daemon and SSH daemon as PID 1
+rngd -f -r /dev/urandom & 
+/usr/sbin/sshd -D -e
+EOF
+chmod +x /sbin/init-sshvm
 
 # Copy the new configured system to the rootfs image
 for d in bin etc lib root sbin user; do tar c "/\$d" | tar x -C /my-rootfs; done
@@ -63,7 +84,7 @@ for d in bin etc lib root sbin user; do tar c "/\$d" | tar x -C /my-rootfs; done
 # proceed with the setup process.
 
 for dir in dev proc run sys var; do mkdir /my-rootfs/\${dir}; done
-EOF
+EOS
 
 # The output is a 50 MB ext4 disk image file
 # containing a minimal Alpine Linux root filesystem with OpenRC, OpenSSH

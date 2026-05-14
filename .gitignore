@@ -45,3 +45,5 @@ dist/
 
 binaries/
 rootfs.ext4
+# Data generated when running VM
+data/

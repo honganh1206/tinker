@@ -65,7 +65,12 @@ web-clean: ## Remove frontend build artifacts
 	rm -rf internal/web/dist internal/web/node_modules
 
 web-dev-serve: web-install
-	go run ./cmd/apiserver/
+	$(GORUN) ./cmd/apiserver/
+
+##@ Sandbox
+sandbox:
+	scripts/create-rootfs.sh ## Build a rootfs, requires docker. Produces 'rootfs.ext4' file.
+	sudo -E $(GORUN) ./cmd/sandbox/main.go -rootfs rootfs.ext4
 
 ##@ Local Development
 

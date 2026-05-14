@@ -74,15 +74,14 @@ func TestVMCreationFlow(t *testing.T) {
 	}
 
 	// Test setup logic of VM creation
-	userID := "testuser"
+	vmID := "testuser"
 	fakeFirecrackerBinary := []byte("fake Firecracker binary")
 	fakeVmlinuxBinary := []byte("fake vmlinux binary")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	vm, err := manager.CreateVM(ctx, userID, fakeFirecrackerBinary, fakeVmlinuxBinary)
-
+	vm, err := manager.CreateVM(ctx, vmID, fakeFirecrackerBinary, fakeVmlinuxBinary)
 	if err == nil {
 		t.Errorf("Expected error with fake firecracker binary")
 		if vm != nil {
@@ -90,44 +89,9 @@ func TestVMCreationFlow(t *testing.T) {
 		}
 	}
 
-	// Verify that VM data directory was created
-	expectedVMDir := filepath.Join(tempDir, "vm-"+userID)
-	if _, err := os.Stat(expectedVMDir); os.IsNotExist(err) {
-		t.Errorf("Expected VM directory %s to be created", expectedVMDir)
-	}
-
-	// Verify that firecracker binary was written
-	firecrackerPath := filepath.Join(expectedVMDir, "firecracker")
-	data, err := os.ReadFile(firecrackerPath)
-	if err != nil {
-		t.Errorf("Failed to read firecracker binary: %v", err)
-	} else if string(data) != string(fakeFirecrackerBinary) {
-		t.Errorf("Firecracker binary content mismatch")
-	}
-
-	// Check firecracker file permissions
-	info, err := os.Stat(firecrackerPath)
-	if err != nil {
-		t.Errorf("Failed to stat firecracker binary: %v", err)
-	} else if info.Mode().Perm() != 0o755 {
-		t.Errorf("Expected firecracker binary to have 755 permissions, got %o", info.Mode().Perm())
-	}
-
-	// Verify that vmlinux kernel was written
-	vmlinuxPath := filepath.Join(expectedVMDir, "vmlinux")
-	kernelData, err := os.ReadFile(vmlinuxPath)
-	if err != nil {
-		t.Errorf("Failed to read vmlinux kernel: %v", err)
-	} else if string(kernelData) != string(fakeVmlinuxBinary) {
-		t.Errorf("Vmlinux kernel content mismatch")
-	}
-
-	// Check vmlinux file permissions (should be 644, not executable)
-	kernelInfo, err := os.Stat(vmlinuxPath)
-	if err != nil {
-		t.Errorf("Failed to stat vmlinux kernel: %v", err)
-	} else if kernelInfo.Mode().Perm() != 0o644 {
-		t.Errorf("Expected vmlinux kernel to have 644 permissions, got %o", kernelInfo.Mode().Perm())
+	expectedVMDir := filepath.Join(tempDir, "vm-"+vmID)
+	if _, err := os.Stat(expectedVMDir); !os.IsNotExist(err) {
+		t.Errorf("Expected VM directory %s to be cleaned up after failure", expectedVMDir)
 	}
 }
 
@@ -137,6 +101,12 @@ func TestGetVM(t *testing.T) {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
+
+	// Create a fake rootfs file
+	rootfsPath := filepath.Join(tempDir, "rootfs.ext4")
+	if err := os.WriteFile(rootfsPath, []byte("fake rootfs content"), 0o644); err != nil {
+		t.Fatalf("Failed to create fake rootfs: %v", err)
+	}
 
 	config := &Config{
 		VMCIDR:   "192.168.100.0/28",
@@ -150,10 +120,10 @@ func TestGetVM(t *testing.T) {
 		t.Fatalf("Failed to create VM manager: %v", err)
 	}
 
-	userID := "testuser"
+	vmID := "testuser"
 
 	// Test getting non-existent VM
-	vm, exists := manager.GetVM(userID)
+	vm, exists := manager.GetVM(vmID)
 	if exists {
 		t.Errorf("Expected VM not to exist")
 	}
@@ -162,38 +132,17 @@ func TestGetVM(t *testing.T) {
 	}
 
 	// Add a VM manually to test retrieving
-	vmID := generateVMID(userID)
 	testVM := &VM{
-		ID:     vmID,
-		UserID: userID,
+		ID: vmID,
 	}
 	manager.vms[vmID] = testVM
 
 	// Test getting existing VM
-	vm, exists = manager.GetVM(userID)
+	vm, exists = manager.GetVM(vmID)
 	if !exists {
 		t.Errorf("Expected VM to exist")
 	}
 	if vm != testVM {
 		t.Errorf("Expected to get the same VM instance")
-	}
-}
-
-func TestVMIDGeneration(t *testing.T) {
-	testCases := []struct {
-		userID   string
-		expected string
-	}{
-		{"alice", "vm-alice"},
-		{"bob", "vm-bob"},
-		{"user-123", "vm-user-123"},
-		{"", "vm-"},
-	}
-
-	for _, tc := range testCases {
-		result := generateVMID(tc.userID)
-		if result != tc.expected {
-			t.Errorf("generateVMID(%s) = %s, expected %s", tc.userID, result, tc.expected)
-		}
 	}
 }

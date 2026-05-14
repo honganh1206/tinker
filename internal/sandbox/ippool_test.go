@@ -18,9 +18,9 @@ func TestNewIPPool(t *testing.T) {
 		t.Fatalf("Failed to create IP pool: %v", err)
 	}
 
-	// Should have 254 available IPs, 2 for network and broadcast
-	if pool.Available() != 254 {
-		t.Errorf("Expected 254 available IPs, got %d", pool.Available())
+	// Should have 253 available IPs, 3 for network, broadcast, and gateway
+	if pool.Available() != 253 {
+		t.Errorf("Expected 253 available IPs, got %d", pool.Available())
 	}
 }
 
@@ -35,8 +35,8 @@ func TestIPPoolAllocation(t *testing.T) {
 		t.Fatalf("Failed to create IP pool: %v", err)
 	}
 
-	// With /28 we should have 14 available IPs (minus 2 for network and broadcast)
-	expectedAvailable := 14
+	// With /28 we should have 13 available IPs (minus 3 for network, broadcast and gateway)
+	expectedAvailable := 13
 	if pool.Available() != expectedAvailable {
 		t.Errorf("Expected %d available IPs got %d", expectedAvailable, pool.Available())
 	}
@@ -69,9 +69,9 @@ func TestIPPoolAllocation(t *testing.T) {
 	if ip1.Equal(ip2) {
 		t.Errorf("Allocated the same IP twice: %s", ip1)
 	}
+	pool.Release(ip1)
 
 	// Release the first IP
-	pool.Release(ip1)
 
 	if pool.IsAllocated(ip1) {
 		t.Errorf("IP %s should not be marked as allocated after release", ip1)
@@ -79,5 +79,59 @@ func TestIPPoolAllocation(t *testing.T) {
 
 	if pool.Available() != expectedAvailable-1 {
 		t.Errorf("Expected %d available IPs after release, got %d", expectedAvailable-1, pool.Available())
+	}
+}
+
+func TestIPPoolExhaustion(t *testing.T) {
+	_, network, err := net.ParseCIDR("192.168.100.0/30")
+	if err != nil {
+		t.Fatalf("Failed to parse CIDR: %v", err)
+	}
+
+	pool, err := NewIPPool(network)
+	if err != nil {
+		t.Fatalf("Failed to create IP pool: %v", err)
+	}
+
+	// /30 has only 1 usable IP (4 - network - broadcast - gateway)
+	expectedAvailable := 1
+	if pool.Available() != expectedAvailable {
+		t.Errorf("Expected %d available IPs, got %d", expectedAvailable, pool.Available())
+	}
+
+	// Allocate the only IP
+	ip1, err := pool.Allocate()
+	if err != nil {
+		t.Fatalf("Failed to allocate first IP: %v", err)
+	}
+
+	// Try to allocate a second IP - should fail
+	_, err = pool.Allocate()
+	if err == nil {
+		t.Errorf("Expected error when allocating from exhausted pool")
+	}
+
+	// Release one and try again
+	pool.Release(ip1)
+	ip3, err := pool.Allocate()
+	if err != nil {
+		t.Fatalf("Failed to allocate after release: %v", err)
+	}
+
+	if !ip1.Equal(ip3) {
+		t.Errorf("Expected to get back the same IP after release: %s != %s", ip1, ip3)
+	}
+}
+
+func TestIPPoolInvalidNetwork(t *testing.T) {
+	_, network, err := net.ParseCIDR("192.168.100.0/31")
+	if err != nil {
+		t.Fatalf("Failed to parse CIDR: %v", err)
+	}
+
+	// /31 has no usable IPs (only network and broadcast)
+	_, err = NewIPPool(network)
+	if err == nil {
+		t.Errorf("Expected error when creating pool with /31 network")
 	}
 }

@@ -2,9 +2,7 @@ package sandbox
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -21,7 +19,6 @@ import (
 // VM represents a single Firecracker microVM instance
 type VM struct {
 	ID         string
-	UserID     string
 	IP         net.IP
 	Gateway    net.IP
 	Netmask    net.IP
@@ -71,8 +68,17 @@ func NewManager(config *Config, logger logrus.FieldLogger) (*Manager, error) {
 }
 
 // CreateVM creates and start a new VM for the given user
-func (m *Manager) CreateVM(ctx context.Context, userID string, firecrackerBinary []byte, vmlinuxBinary []byte) (*VM, error) {
-	vmID := generateVMID(userID)
+func (m *Manager) CreateVM(ctx context.Context, vmID string, firecrackerBinary []byte, vmlinuxBinary []byte) (*VM, error) {
+	// Validate VM ID, should be alphanumeric with - and _, not empty, and at most 48 chars
+	if vmID == "" {
+		return nil, fmt.Errorf("VM ID cannot be empty")
+	}
+	if strings.Trim(vmID, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_") != "" {
+		return nil, fmt.Errorf("invalid VM ID: %s", vmID)
+	}
+	if len(vmID) > 48 {
+		return nil, fmt.Errorf("VM ID too long: %s", vmID)
+	}
 
 	ip, err := m.ipPool.Allocate()
 	if err != nil {
@@ -88,7 +94,6 @@ func (m *Manager) CreateVM(ctx context.Context, userID string, firecrackerBinary
 	vm := &VM{
 		ID:      vmID,
 		IP:      ip,
-		UserID:  userID,
 		Gateway: m.ipPool.Gateway(),
 		Netmask: m.ipPool.Netmask(),
 		// Where are these initialized?
@@ -157,21 +162,23 @@ func (m *Manager) DestroyVM(vmID string) error {
 // Start starts the Firecracker process for this VM
 func (vm *VM) Start(ctx context.Context, manager *Manager) error {
 	// Remove existing socket
-	os.Remove(vm.SocketPath)
+	_ = os.Remove(vm.SocketPath)
 
 	vmlinuxPath := filepath.Join(vm.dataDir, "vmlinux")
 	firecrackerPath := filepath.Join(vm.dataDir, "firecracker")
 
 	// Disable kernel object (.ko) modules during runtime (everything must be built into the kernel)
 	// Trust CPU hardware random number generator as entropy source (generate random data)
-	bootArgs := "console=tty0 noapic reboot=k panic=1 pci=off nomodules random.trust_cpu=on"
-	bootArgs += fmt.Sprintf(" ip=%s::%s::%s::eth0:off", vm.IP, vm.Gateway, vm.Netmask)
+	bootArgs := "console=tty0 noapic reboot=k panic=1 pci=off acpi=off nomodules random.trust_cpu=on init=/sbin/init-sshvm"
+
+	// ip=IP::Gateway:Netmask:Hostname:Interface:off
+	bootArgs += fmt.Sprintf(" ip=%s::%s:%s:%s:eth0:off", vm.IP, vm.Gateway, vm.Netmask, vm.ID)
 
 	// Generate unique ID from VM IP for MAC and TAP device (only work for < 65535 VMs - we need only a few btw)
 	vmNetID := int(vm.IP[len(vm.IP)-2])*256 + int(vm.IP[len(vm.IP)-1])
 	tapName := fmt.Sprintf("sshvm-tap-%d", vmNetID)
 
-	// Setup TAP device (fake NIC on the host side)
+	// Set up TAP device (fake NIC on the host side)
 	if err := manager.setupTAPDevice(tapName); err != nil {
 		return fmt.Errorf("failed to setup TAP device: %w", err)
 	}
@@ -222,18 +229,34 @@ func (vm *VM) Start(ctx context.Context, manager *Manager) error {
 		Setpgid: true,
 	}
 
-	// Capture VM console output (boot logs, OpenRC, SSH, etc.)
-	// logPath := filepath.Join(vm.dataDir, "console.log")
-	// logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to create log file: %w", err)
-	// }
-	// defer logFile.Close()
-	//
-	// cmd.Stdout = logFile
-	// cmd.Stderr = logFile
+	vm.logger.Infof("Starting VM with IP %s, data dir %s", vm.IP, vm.dataDir)
+
+	// Create a named pipe for VM serial input to send to the host
+	pipePath := filepath.Join(vm.dataDir, "console.in")
+	if err := syscall.Mkfifo(pipePath, 0o600); err != nil {
+		return fmt.Errorf("mkfifo for console.in: %w", err)
+	}
+
+	pipeFile, err := os.OpenFile(pipePath, os.O_RDWR, os.ModeNamedPipe)
+	if err != nil {
+		return fmt.Errorf("open pipe for console.in: %v", err)
+	}
+	defer pipeFile.Close()
+
+	// Capture VM console output (boot logs, SSH, etc.)
+	logPath := filepath.Join(vm.dataDir, "console.out")
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return fmt.Errorf("failed to create log file: %w", err)
+	}
+	defer logFile.Close()
+
+	cmd.Stdin = pipeFile
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
 
 	machine, err := firecracker.NewMachine(ctx, cfg, firecracker.WithProcessRunner(cmd), firecracker.WithLogger(vm.logger))
+	// cmd.Stderr = logFile
 	if err != nil {
 		return fmt.Errorf("failed to create machine: %w", err)
 	}
@@ -280,8 +303,7 @@ func (vm *VM) Stop() error {
 }
 
 // GetVM returns the VM for a given user ID
-func (m *Manager) GetVM(userID string) (*VM, bool) {
-	vmID := generateVMID(userID)
+func (m *Manager) GetVM(vmID string) (*VM, bool) {
 	vm, exists := m.vms[vmID]
 	return vm, exists
 }
@@ -307,91 +329,6 @@ func (vm *VM) waitforSocket(timeout time.Duration) error {
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
-}
-
-// configure configures the VM via the Firecracker APIs
-func (vm *VM) configure() error {
-	// Configure VM response
-	vmConfig := map[string]any{
-		"vcpu_count":   vm.config.VMCPUs,
-		"mem_size_mib": vm.config.VMMemory,
-	}
-
-	if err := vm.putAPI("/vm-config", vmConfig); err != nil {
-		return fmt.Errorf("failed to configure machine: %w", err)
-	}
-
-	// Configure boot source (kernel) and root drive (rootfs) by writing them to VM data dir
-	vmlinuxPath := filepath.Join(vm.dataDir, "vmlinux")
-	bootSrc := map[string]any{
-		"kernel_image_path": vmlinuxPath,
-		// Send console output to serial port
-		// Use kernel reboot method instead of hardware reboot
-		// Wait 1 second and reboot in case of kernel panic
-		// Disable Peripheral Component Interconnect
-		"boot_args": "console=ttyS0 reboot=k panic=1 pci=off",
-	}
-
-	if err := vm.putAPI("/boot-source", bootSrc); err != nil {
-		return fmt.Errorf("failed to configure boot source: %w", err)
-	}
-
-	drive := map[string]any{
-		"drive_id": "rootfs",
-		// Path on host machine pointing to disk image
-		"path_on_host": vm.config.Rootfs,
-		// Mount disk to / (where the OS lives)
-		"is_root_device": true,
-		// VM cannot write to disk
-		"is_read_only": false,
-	}
-
-	if err := vm.putAPI("/drives/rootfs", drive); err != nil {
-		return fmt.Errorf("failed to configure root drive: %w", err)
-	}
-
-	// TODO: Network interface configs
-	return nil
-}
-
-// putAPI makes a PUT request to the Firecracker APIs
-func (vm *VM) putAPI(endpoint string, data any) error {
-	conn, err := net.Dial("unix", vm.SocketPath)
-	if err != nil {
-		return fmt.Errorf("failed to connect to API socket: %w", err)
-	}
-	defer conn.Close()
-
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal JSON: %w", err)
-	}
-
-	// TIL we can do this to interact with socket!
-	request := fmt.Sprintf("PUT %s HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s", endpoint, len(jsonData), string(jsonData))
-
-	if _, err := conn.Write([]byte(request)); err != nil {
-		return fmt.Errorf("failed to write request: %w", err)
-	}
-
-	// Read and validate response
-	response := make([]byte, 4096)
-	n, err := conn.Read(response)
-	if err != nil && err != io.EOF {
-		return fmt.Errorf("failed to read response: %w", err)
-	}
-
-	responseStr := string(response[:n])
-	if len(responseStr) < 12 || responseStr[9] != '2' {
-		return fmt.Errorf("API request failed: %s", responseStr)
-	}
-
-	return nil
-}
-
-// generateVMID generates a VM ID based on user ID
-func generateVMID(userID string) string {
-	return fmt.Sprintf("vm-%s", userID)
 }
 
 // setupNetworkBridge creates and configures the network bridge (like a switch for VMs)
