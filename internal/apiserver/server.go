@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -18,7 +19,17 @@ import (
 
 // upgrader upgrades HTTP requests to WebSocket protocol via a handshake
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
+	CheckOrigin: func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true
+		}
+		u, err := url.Parse(origin)
+		if err != nil || u.Host == "" {
+			return false
+		}
+		return strings.EqualFold(u.Host, r.Host)
+	},
 }
 
 // Server is the Tinker API Server.
@@ -28,18 +39,20 @@ type Server struct {
 	sessionsDir string
 	mcpStore    mcp.ConfigStore
 	mux         *http.ServeMux
+	auth        *authenticator
 
 	clientsMu sync.Mutex
 	clients   map[chan []byte]struct{}
 }
 
 // NewServer creates a new Tinker API server.
-func NewServer(bus eventbus.EventBus, log *logger.Logger, sessionsDir, mcpDir string) *Server {
+func NewServer(bus eventbus.EventBus, log *logger.Logger, sessionsDir, mcpDir string, auth AuthConfig) *Server {
 	s := &Server{
 		eventbus:    bus,
 		log:         log,
 		sessionsDir: sessionsDir,
 		mcpStore:    mcp.NewFileConfigStore(mcpDir),
+		auth:        newAuthenticator(auth),
 		clients:     make(map[chan []byte]struct{}),
 	}
 	s.registerRoutes()
@@ -65,11 +78,17 @@ func (s *Server) Start(addr string, frontendFS fs.FS) error {
 // registerRoutes builds the mux and attaches API routes.
 func (s *Server) registerRoutes() {
 	mux := http.NewServeMux()
+	// Public routes.
 	mux.HandleFunc("/healthz", s.handleHealth)
-	mux.HandleFunc("/api/sessions", s.handleSessions)
-	mux.HandleFunc("/api/sessions/", s.handleSessionByID)
-	mux.HandleFunc("/api/mcp/configs", s.handleMCPConfigs)
-	mux.HandleFunc("/ws/stream", s.handleStream)
+	mux.HandleFunc("/auth/google/start", s.handleGoogleStart)
+	mux.HandleFunc("/auth/google/callback", s.handleGoogleCallback)
+	mux.HandleFunc("/auth/logout", s.handleLogout)
+	mux.HandleFunc("/auth/me", s.handleMe)
+	// Protected routes (no-op wrap when auth is disabled).
+	mux.Handle("/api/sessions", s.requireAuth(http.HandlerFunc(s.handleSessions)))
+	mux.Handle("/api/sessions/", s.requireAuth(http.HandlerFunc(s.handleSessionByID)))
+	mux.Handle("/api/mcp/configs", s.requireAuth(http.HandlerFunc(s.handleMCPConfigs)))
+	mux.Handle("/ws/stream", s.requireAuth(http.HandlerFunc(s.handleStream)))
 	s.mux = mux
 }
 

@@ -20,7 +20,7 @@ func setupServer(t *testing.T) (*Server, string) {
 	t.Helper()
 	sessionsDir := t.TempDir()
 	mcpDir := t.TempDir()
-	s := NewServer(nil, nil, sessionsDir, mcpDir)
+	s := NewServer(nil, nil, sessionsDir, mcpDir, AuthConfig{})
 	return s, sessionsDir
 }
 
@@ -51,6 +51,42 @@ func TestHealthz(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "ok", w.Body.String())
+}
+
+func TestAuthConfigRouteNotRegistered(t *testing.T) {
+	s, _ := setupServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/auth/config", nil)
+	w := httptest.NewRecorder()
+	s.mux.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestWebSocketOriginPolicy(t *testing.T) {
+	tests := []struct {
+		name   string
+		host   string
+		origin string
+		want   bool
+	}{
+		{name: "same origin", host: "tinker.local", origin: "http://tinker.local", want: true},
+		{name: "no origin", host: "tinker.local", origin: "", want: true},
+		{name: "foreign origin", host: "tinker.local", origin: "http://evil.local", want: false},
+		{name: "invalid origin", host: "tinker.local", origin: "://bad", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/ws/stream", nil)
+			req.Host = tt.host
+			if tt.origin != "" {
+				req.Header.Set("Origin", tt.origin)
+			}
+
+			assert.Equal(t, tt.want, upgrader.CheckOrigin(req))
+		})
+	}
 }
 
 func TestListSessions_Empty(t *testing.T) {
