@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-// Config holds all configuration options for the ssh-hypervisor
+// Shared configs for Firecracker microVMs
 type Config struct {
 	// SSH server port
 	Port int
@@ -23,6 +23,8 @@ type Config struct {
 	DataDir string
 	// Path to rootfs image
 	Rootfs string
+	// Maximum number of concurrent VMs (0 means unlimited)
+	MaxConcurrentVMs int
 }
 
 // Validate checks if the confgugration is valid
@@ -50,6 +52,9 @@ func (c *Config) Validate() error {
 
 	if c.VMCPUs < 1 {
 		return fmt.Errorf("VM must have at least 1 CPU")
+	}
+	if c.MaxConcurrentVMs < 0 {
+		return fmt.Errorf("max concurrent VMs cannot be negative (use 0 for unlimited)")
 	}
 
 	// Ensure data directory exists

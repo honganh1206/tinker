@@ -19,17 +19,6 @@ func TestVMIntegrationWithRealBinaries(t *testing.T) {
 		t.Skip("Skipping integration test: /dev/kvm not available (KVM support required)")
 	}
 
-	// Load real binaries
-	firecrackerBinary, err := os.ReadFile("binaries/firecracker")
-	if err != nil {
-		t.Skip("Skipping integration test: firecracker binary not found. Run 'go generate ./cmd/' first")
-	}
-
-	vmlinuxBinary, err := os.ReadFile("binaries/vmlinux")
-	if err != nil {
-		t.Skip("Skipping integration test: vmlinux binary not found. Run 'go generate ./cmd/' first")
-	}
-
 	// Create temporary directory for test
 	tempDir, err := os.MkdirTemp("", "tinker-sandbox-integration-*")
 	if err != nil {
@@ -51,7 +40,7 @@ func TestVMIntegrationWithRealBinaries(t *testing.T) {
 		Rootfs:   rootfsPath,
 	}
 
-	manager, err := NewManager(config, logrus.New())
+	manager, err := NewManager(config, logrus.New(), GetFirecrackerBinary(), GetVmlinuxBinary())
 	if err != nil {
 		t.Fatalf("Failed to create VM manager: %v", err)
 	}
@@ -62,7 +51,7 @@ func TestVMIntegrationWithRealBinaries(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	vm, err := manager.CreateVM(ctx, vmID, firecrackerBinary, vmlinuxBinary)
+	vm, err := manager.CreateVM(ctx, vmID)
 	// We should expect this to potentially fail during configuration
 	// since we don't have a real rootfs at this point
 	if err != nil {

@@ -3,11 +3,14 @@ package sandbox
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -25,21 +28,27 @@ type VM struct {
 	SocketPath string
 	PIDFile    string
 	machine    *firecracker.Machine
-	config     *Config
-	dataDir    string
-	logger     *logrus.Entry
+	// Shared configs between VMs
+	config *Config
+	// Data directory for different users
+	dataDir string
+	logger  *logrus.Entry
 }
 
 // Manager manages the lifecycle of Firecracker VMs
 type Manager struct {
-	config     *Config
-	vms        map[string]*VM
+	config *Config
+	// Protect vms and vmRefs maps
+	mu  sync.RWMutex
+	vms map[string]*VM
+	// Reference count for each VM
+	vmRefs     map[string]int
 	ipPool     *IPPool
 	bridgeName string
 	logger     logrus.FieldLogger
 }
 
-func NewManager(config *Config, logger logrus.FieldLogger) (*Manager, error) {
+func NewManager(config *Config, logger logrus.FieldLogger, firecrackerBin []byte, vmlinuxBin []byte) (*Manager, error) {
 	ipNet, err := config.GetVMIPRange()
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse VM IP range: %w", err)
@@ -55,9 +64,26 @@ func NewManager(config *Config, logger logrus.FieldLogger) (*Manager, error) {
 	manager := &Manager{
 		config:     config,
 		vms:        make(map[string]*VM),
+		vmRefs:     make(map[string]int),
 		ipPool:     ipPool,
 		bridgeName: bridgeName,
 		logger:     logger,
+	}
+
+	// Write Firecracker binary to main data dir (shared across VMs?)
+	firecrackerPath := filepath.Join(config.DataDir, "firecracker")
+	if _, err := os.Stat(firecrackerPath); os.IsNotExist(err) {
+		if err := os.WriteFile(firecrackerPath, firecrackerBin, 0o755); err != nil {
+			return nil, fmt.Errorf("failed to write firecracker binary: %w", err)
+		}
+	}
+
+	// Write vmlinux kernel to main data directory (shared across VMs)
+	vmlinuxPath := filepath.Join(config.DataDir, "vmlinux")
+	if _, err := os.Stat(vmlinuxPath); os.IsNotExist(err) {
+		if err := os.WriteFile(vmlinuxPath, vmlinuxBin, 0o644); err != nil {
+			return nil, fmt.Errorf("failed to write vmlinux kernel: %w", err)
+		}
 	}
 
 	if err := manager.setupNetworkBridge(); err != nil {
@@ -68,7 +94,15 @@ func NewManager(config *Config, logger logrus.FieldLogger) (*Manager, error) {
 }
 
 // CreateVM creates and start a new VM for the given user
-func (m *Manager) CreateVM(ctx context.Context, vmID string, firecrackerBinary []byte, vmlinuxBinary []byte) (*VM, error) {
+func (m *Manager) CreateVM(ctx context.Context, vmID string) (*VM, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Check VM limit before creating new VMs
+	if m.config.MaxConcurrentVMs > 0 && len(m.vms) >= m.config.MaxConcurrentVMs {
+		return nil, fmt.Errorf("maximum number of concurrent VM %s (ref count: %d)", vmID, m.vmRefs[vmID])
+	}
+
 	// Validate VM ID, should be alphanumeric with - and _, not empty, and at most 48 chars
 	if vmID == "" {
 		return nil, fmt.Errorf("VM ID cannot be empty")
@@ -104,30 +138,18 @@ func (m *Manager) CreateVM(ctx context.Context, vmID string, firecrackerBinary [
 		logger:     m.logger.WithField("vm_id", vmID),
 	}
 
-	firecrackerPath := filepath.Join(vmDataDir, "firecracker")
-	if err := os.WriteFile(firecrackerPath, firecrackerBinary, 0o755); err != nil {
-		m.ipPool.Release(ip)
-		os.RemoveAll(vmDataDir)
-		return nil, fmt.Errorf("failed to write firecracker binary: %w", err)
-	}
-
-	// Write vmlinux kernel to disk
-	vmlinuxPath := filepath.Join(vmDataDir, "vmlinux")
-	if err := os.WriteFile(vmlinuxPath, vmlinuxBinary, 0o644); err != nil {
-		m.ipPool.Release(ip)
-		os.RemoveAll(vmDataDir)
-		return nil, fmt.Errorf("failed to write vmlinux kernel: %w", err)
-	}
-
 	// Copy rootfs image to VM data directory (writable)
-	buf, err := os.ReadFile(vm.config.Rootfs)
-	if err == nil {
-		err = os.WriteFile(filepath.Join(vmDataDir, "rootfs.img"), buf, 0o644)
-	}
-	if err != nil {
-		m.ipPool.Release(ip)
-		os.RemoveAll(vmDataDir)
-		return nil, fmt.Errorf("failed to copy rootfs image: %w", err)
+	rootfsPath := filepath.Join(vmDataDir, "rootfs.img")
+	if _, err := os.Stat(rootfsPath); os.IsNotExist(err) {
+		buf, err := os.ReadFile(vm.config.Rootfs)
+		if err == nil {
+			err = os.WriteFile(rootfsPath, buf, 0o644)
+		}
+		if err != nil {
+			m.ipPool.Release(ip)
+			os.RemoveAll(vmDataDir)
+			return nil, fmt.Errorf("failed to copy rootfs image: %w", err)
+		}
 	}
 
 	// Start the VM
@@ -139,6 +161,8 @@ func (m *Manager) CreateVM(ctx context.Context, vmID string, firecrackerBinary [
 
 	// Track the VM
 	m.vms[vmID] = vm
+	m.vmRefs[vmID] = 1
+	m.logger.Printf("Created new VM %s (ref count: 1)", vmID)
 	return vm, nil
 }
 
@@ -164,12 +188,13 @@ func (vm *VM) Start(ctx context.Context, manager *Manager) error {
 	// Remove existing socket
 	_ = os.Remove(vm.SocketPath)
 
-	vmlinuxPath := filepath.Join(vm.dataDir, "vmlinux")
-	firecrackerPath := filepath.Join(vm.dataDir, "firecracker")
+	vmlinuxPath := filepath.Join(vm.config.DataDir, "vmlinux")
+	firecrackerPath := filepath.Join(vm.config.DataDir, "firecracker")
+	rootfsPath := filepath.Join(vm.dataDir, "rootfs.img")
 
 	// Disable kernel object (.ko) modules during runtime (everything must be built into the kernel)
 	// Trust CPU hardware random number generator as entropy source (generate random data)
-	bootArgs := "console=tty0 noapic reboot=k panic=1 pci=off acpi=off nomodules random.trust_cpu=on init=/sbin/init-sshvm"
+	bootArgs := "console=ttyS0 reboot=k panic=1 nomodules random.trust_cpu=on"
 
 	// ip=IP::Gateway:Netmask:Hostname:Interface:off
 	bootArgs += fmt.Sprintf(" ip=%s::%s:%s:%s:eth0:off", vm.IP, vm.Gateway, vm.Netmask, vm.ID)
@@ -199,7 +224,7 @@ func (vm *VM) Start(ctx context.Context, manager *Manager) error {
 				IsRootDevice: firecracker.Bool(true),
 				IsReadOnly:   firecracker.Bool(false),
 				// At this point the image should be on the VM, not the host?
-				PathOnHost: firecracker.String(filepath.Join(vm.dataDir, "rootfs.img")),
+				PathOnHost: firecracker.String(rootfsPath),
 			},
 		},
 		MachineCfg: models.MachineConfiguration{
@@ -256,10 +281,42 @@ func (vm *VM) Start(ctx context.Context, manager *Manager) error {
 	cmd.Stderr = logFile
 
 	machine, err := firecracker.NewMachine(ctx, cfg, firecracker.WithProcessRunner(cmd), firecracker.WithLogger(vm.logger))
-	// cmd.Stderr = logFile
 	if err != nil {
 		return fmt.Errorf("failed to create machine: %w", err)
 	}
+
+	// Need to initialize virtio-rng (entropy) manually since not supported by SDK
+	// https://github.com/firecracker-microvm/firecracker-go-sdk/issues/505
+	machine.Handlers.FcInit = machine.Handlers.FcInit.Append(firecracker.Handler{
+		Name: "virtio-rng",
+		Fn: func(ctx context.Context, m *firecracker.Machine) error {
+			// Take a request and return a response
+			tr := &http.Transport{
+				DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+					return net.Dial("unix", m.Cfg.SocketPath)
+				},
+			}
+			c := &http.Client{Transport: tr}
+			defer c.CloseIdleConnections()
+
+			body := strings.NewReader(`{"rate_limiter":{"bandwidth":{"size":4096,"one_time_burst":4096,"refill_time":100}}}`)
+
+			req, _ := http.NewRequestWithContext(ctx, http.MethodPut, "http://unix/entropy", body)
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := c.Do(req)
+			if err != nil {
+				return err
+			}
+
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusNoContent {
+				b, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("entropy PUT failed: %s : %s", resp.Status, string(b))
+			}
+			return nil
+		},
+	})
 
 	vm.machine = machine
 
@@ -303,9 +360,44 @@ func (vm *VM) Stop() error {
 }
 
 // GetVM returns the VM for a given user ID
+// and increment the reference count
 func (m *Manager) GetVM(vmID string) (*VM, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if vm, exists := m.vms[vmID]; exists {
+		m.vmRefs[vmID]++
+		m.logger.Printf("Using existing VM %s (ref count: %d)", vmID, m.vmRefs[vmID])
+		return vm, exists
+	}
+	return nil, false
+}
+
+// ReleaseVM decrements the reference count for a VM
+// and destroy it if there is no reference
+func (m *Manager) ReleaseVM(vmID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	vm, exists := m.vms[vmID]
-	return vm, exists
+	if !exists {
+		return fmt.Errorf("VM %s not found", vmID)
+	}
+
+	m.vmRefs[vmID]--
+	refCount := m.vmRefs[vmID]
+	m.logger.Printf("Released VM %s (ref count: %d)", vmID, refCount)
+
+	if refCount <= 0 {
+		m.logger.Printf("Destroying VM %s (no more references)", vmID)
+
+		if err := vm.Stop(); err != nil {
+			return fmt.Errorf("failed to stop VM: %w", err)
+		}
+		m.ipPool.Release(vm.IP)
+		delete(m.vms, vmID)
+		delete(m.vmRefs, vmID)
+	}
+	return nil
 }
 
 // waitForSocket waits for the Firecracker API socket to be ready
@@ -340,32 +432,32 @@ func (m *Manager) setupNetworkBridge() error {
 	}
 
 	// Create bridge
-	if err := exec.Command("ip", "link", "add", "name", m.bridgeName, "type", "bridge").Run(); err != nil {
-		return fmt.Errorf("failed to create bridge %s: %w", m.bridgeName, err)
+	if output, err := exec.Command("ip", "link", "add", "name", m.bridgeName, "type", "bridge").CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to create bridge %s: %w (output: %s)", m.bridgeName, err, strings.TrimSpace(string(output)))
 	}
 
-	m.logger.Info("Created bridge: %s", m.bridgeName)
+	m.logger.Infof("Created bridge: %s", m.bridgeName)
 
 	// Configure bridge IP (gateway)
 	gateway := m.ipPool.Gateway()
 	// TODO: Make this dynamic based on network mask? Like passing in a mask arg?
 	gatewayWithMask := fmt.Sprintf("%s/24", gateway)
 
-	if err := exec.Command("ip", "addr", "add", gatewayWithMask, "dev", m.bridgeName).Run(); err != nil {
+	if output, err := exec.Command("ip", "addr", "add", gatewayWithMask, "dev", m.bridgeName).CombinedOutput(); err != nil {
 		// Ignore address if already exist?
-		if !strings.Contains(err.Error(), "File exists") {
-			return fmt.Errorf("failed to add IP to bridge: %w", err)
+		if !strings.Contains(string(output), "File exists") {
+			return fmt.Errorf("failed to add IP to bridge: %w (output: %s)", err, strings.TrimSpace(string(output)))
 		}
 	}
 
 	// Bring bridge up (what?)
-	if err := exec.Command("ip", "link", "set", "dev", m.bridgeName, "up").Run(); err != nil {
-		return fmt.Errorf("failed to bring bridge up: %w", err)
+	if output, err := exec.Command("ip", "link", "set", "dev", m.bridgeName, "up").CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to bring bridge up: %w (output: %s)", err, strings.TrimSpace(string(output)))
 	}
 
 	// Enable IP forwarding (like port forwarding?)
-	if err := exec.Command("sh", "-c", "echo 1 > /proc/sys/net/ipv4/ip_forward").Run(); err != nil {
-		return fmt.Errorf("failed to enable IP forwarding: %w", err)
+	if output, err := exec.Command("sh", "-c", "echo 1 > /proc/sys/net/ipv4/ip_forward").CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to enable IP forwarding: %w (output: %s)", err, strings.TrimSpace(string(output)))
 	}
 
 	m.logger.Infof("Bridge %s configured with gateway %s", m.bridgeName, gateway)
@@ -378,24 +470,24 @@ func (m *Manager) setupTAPDevice(tapName string) error {
 	if err := exec.Command("ip", "link", "show", tapName).Run(); err == nil {
 		// If TAP device exists, delete it
 		m.logger.Debugf("TAP device %s already exists, deleting it...", tapName)
-		if err := exec.Command("ip", "link", "delete", tapName).Run(); err != nil {
-			return fmt.Errorf("failed to delete existing TAP device %s: %w", tapName, err)
+		if output, err := exec.Command("ip", "link", "delete", tapName).CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to delete existing TAP device %s: %w (output: %s)", tapName, err, strings.TrimSpace(string(output)))
 		}
 	}
 
 	// Create TAP device
-	if err := exec.Command("ip", "tuntap", "add", tapName, "mode", "tap").Run(); err != nil {
-		return fmt.Errorf("failed to create TAP device %s: %w", tapName, err)
+	if output, err := exec.Command("ip", "tuntap", "add", tapName, "mode", "tap").CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to create TAP device %s: %w (output: %s)", tapName, err, strings.TrimSpace(string(output)))
 	}
 
 	// Attach TAP device to bridge
-	if err := exec.Command("ip", "link", "set", "dev", tapName, "master", m.bridgeName).Run(); err != nil {
-		return fmt.Errorf("failed to attach TAP device to bridge: %w", err)
+	if output, err := exec.Command("ip", "link", "set", "dev", tapName, "master", m.bridgeName).CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to attach TAP device to bridge: %w (output: %s)", err, strings.TrimSpace(string(output)))
 	}
 
 	// Bring TAP device up
-	if err := exec.Command("ip", "link", "set", "dev", tapName, "up").Run(); err != nil {
-		return fmt.Errorf("failed to bring TAP device up: %w", err)
+	if output, err := exec.Command("ip", "link", "set", "dev", tapName, "up").CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to bring TAP device up: %w (output: %s)", err, strings.TrimSpace(string(output)))
 	}
 
 	m.logger.Debugf("Created and configured TAP device: %s", tapName)

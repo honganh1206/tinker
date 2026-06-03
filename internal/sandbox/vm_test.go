@@ -11,16 +11,24 @@ import (
 )
 
 func TestNewManager(t *testing.T) {
+	// Create temporary directory for test
+	tempDir, err := os.MkdirTemp("", "tinker-sandbox-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	defer os.RemoveAll(tempDir)
 	config := &Config{
 		VMCIDR:   "192.168.100.0/24",
 		VMMemory: 128,
 		VMCPUs:   1,
-		DataDir:  "/tmp/tinker-sandbox-test",
+		DataDir:  tempDir,
 	}
 
-	manager, err := NewManager(config, logrus.New())
+	manager, err := NewManager(config, logrus.New(), []byte("fake firecracker"), []byte("fake vmlinux"))
 	if err != nil {
-		t.Fatalf("Failed to create VM mamanger: %v", err)
+		t.Fatalf("Failed to create VM manager: %v", err)
 	}
 
 	if manager == nil {
@@ -48,7 +56,7 @@ func TestManagerInvalidCIDR(t *testing.T) {
 		DataDir:  "/tmp/tinker-sandbox-test",
 	}
 
-	_, err := NewManager(config, logrus.New())
+	_, err := NewManager(config, logrus.New(), []byte("fake firecracker"), []byte("fake vmlinux"))
 	if err == nil {
 		t.Errorf("Expected error with invalid CIDR")
 	}
@@ -68,20 +76,18 @@ func TestVMCreationFlow(t *testing.T) {
 		DataDir:  tempDir,
 	}
 
-	manager, err := NewManager(config, logrus.New())
+	manager, err := NewManager(config, logrus.New(), []byte("fake firecracker"), []byte("fake vmlinux"))
 	if err != nil {
 		t.Fatalf("Failed to create VM manager: %v", err)
 	}
 
 	// Test setup logic of VM creation
 	vmID := "testuser"
-	fakeFirecrackerBinary := []byte("fake Firecracker binary")
-	fakeVmlinuxBinary := []byte("fake vmlinux binary")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	vm, err := manager.CreateVM(ctx, vmID, fakeFirecrackerBinary, fakeVmlinuxBinary)
+	vm, err := manager.CreateVM(ctx, vmID)
 	if err == nil {
 		t.Errorf("Expected error with fake firecracker binary")
 		if vm != nil {
@@ -115,7 +121,7 @@ func TestGetVM(t *testing.T) {
 		DataDir:  tempDir,
 	}
 
-	manager, err := NewManager(config, logrus.New())
+	manager, err := NewManager(config, logrus.New(), []byte("fake firecracker"), []byte("fake vmlinux"))
 	if err != nil {
 		t.Fatalf("Failed to create VM manager: %v", err)
 	}
