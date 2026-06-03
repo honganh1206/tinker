@@ -98,7 +98,7 @@ jobs:
         run: go generate ./...
 
       - name: Add runner to KVM Accept Control List (ACL)
-        run: sudo setf -m u:"$(whoami)":rw /dev/kvm
+        run: sudo setfacl -m u:"$(whoami)":rw /dev/kvm
 
       - name: Download frontend dist
         uses: actions/download-artifact@v4
