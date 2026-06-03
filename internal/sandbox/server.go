@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"encoding/pem"
 	"fmt"
-	"log"
 	"math"
 	"net"
 	"os"
@@ -54,13 +53,14 @@ func NewServer(config *Config, logger logrus.FieldLogger) (*Server, error) {
 
 // Run starts the SSH server
 func (s *Server) Run(ctx context.Context) error {
-	log.Printf("Server configuration:")
-	log.Printf("  Port: %d", s.config.Port)
-	log.Printf("  Host key: %s", s.config.HostKey)
-	log.Printf("  VM CIDR: %s", s.config.VMCIDR)
-	log.Printf("  VM Memory: %d MB", s.config.VMMemory)
-	log.Printf("  VM CPUs: %d", s.config.VMCPUs)
-	log.Printf("  Data directory: %s", s.config.DataDir)
+	s.logger.Printf("Server configuration:")
+	s.logger.Printf("  Port: %d", s.config.Port)
+	s.logger.Printf("  Host key: %s", s.config.HostKey)
+	s.logger.Printf("  VM CIDR: %s", s.config.VMCIDR)
+	s.logger.Printf("  VM Memory: %d MB", s.config.VMMemory)
+	s.logger.Printf("  VM CPUs: %d", s.config.VMCPUs)
+	s.logger.Printf("  Max concurrent VMs: %d", s.config.MaxConcurrentVMs)
+	s.logger.Printf("  Data directory: %s", s.config.DataDir)
 
 	hostKey, err := s.loadOrGenerateHostKey()
 	if err != nil {
@@ -319,8 +319,11 @@ func formatRelativeTime(t time.Time) string {
 	now := time.Now()
 	diff := now.Sub(t)
 
-	if diff < time.Minute {
+	if diff < 5 * time.Second {
 		return "just now"
+	} else if diff < time.Minute {
+		seconds := int(diff.Seconds())
+		return fmt.Sprintf("%d seconds ago", seconds)
 	} else if diff < time.Hour {
 		minutes := int(diff.Minutes())
 		if minutes == 1 {

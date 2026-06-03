@@ -99,6 +99,12 @@ func (p *IPPool) Netmask() net.IP {
 	return net.IP(p.network.Mask)
 }
 
+// MaskSize returns the number of bits in the network mask
+func (p *IPPool) MaskSize() int {
+	maskSize, _ := p.network.Mask.Size()
+	return maskSize
+}
+
 // isBroadcast checks if an IP is the broadcast address of the network
 func isBroadcast(ip net.IP, network *net.IPNet) bool {
 	// IP address is a slice of bytes

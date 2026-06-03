@@ -345,9 +345,16 @@ func (vm *VM) Stop() error {
 		ctx := context.Background()
 		err := vm.machine.Shutdown(ctx)
 
+		// HACK: Give it a moment to shut down cleanly
+		time.Sleep(250 * time.Millisecond)
 		vm.machine.StopVMM()
 		vm.machine.Wait(ctx)
 		os.RemoveAll(vm.dataDir)
+
+		// Clean up only VM-specific files, preserve data and console output
+		os.Remove(vm.SocketPath)                           // firecracker.sock
+		os.Remove(vm.PIDFile)                              // firecracker.pid
+		os.Remove(filepath.Join(vm.dataDir, "console.in")) // console.in
 
 		if err != nil {
 			return fmt.Errorf("failed to shut down machine: %w", err)
@@ -440,8 +447,9 @@ func (m *Manager) setupNetworkBridge() error {
 
 	// Configure bridge IP (gateway)
 	gateway := m.ipPool.Gateway()
+	maskSize := m.ipPool.MaskSize()
 	// TODO: Make this dynamic based on network mask? Like passing in a mask arg?
-	gatewayWithMask := fmt.Sprintf("%s/24", gateway)
+	gatewayWithMask := fmt.Sprintf("%s/%d", gateway, maskSize)
 
 	if output, err := exec.Command("ip", "addr", "add", gatewayWithMask, "dev", m.bridgeName).CombinedOutput(); err != nil {
 		// Ignore address if already exist?

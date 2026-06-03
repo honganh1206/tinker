@@ -3,7 +3,7 @@
 set -euo pipefail
 # Build and mount a minimal ext4 root filesystem
 # by writing an infinite stream of zeros to create empty space
-dd if=/dev/zero of=rootfs.ext4 bs=1M count=50   # 50 MB disk image
+dd if=/dev/zero of=rootfs.ext4 bs=1M count=512   # 512 MB disk image
 mkfs.ext4 rootfs.ext4                           # Format as ext4 by writing an ext4 filesystem structure into that file
 rootfs_dir="$(mktemp -d -p "$PWD" rootfs.XXXX)" # Create a temporary mount directory to guarantee uniqueness
 chmod 755 "$rootfs_dir"
@@ -30,6 +30,9 @@ set -euo pipefail
 apk add --no-cache openrc
 apk add --no-cache util-linux openssh bash
 
+# Add interesting packages for user convenience:
+apk add --no-cache vim htop curl wget iproute2 net-tools python3 nodejs npm
+
 # Set up a login terminal on the serial console (ttyS0):
 ln -s agetty /etc/init.d/agetty.ttyS0
 echo ttyS0 > /etc/securetty
@@ -47,6 +50,9 @@ rc-update add sshd default
 
 # Use bash instead of sh
 sed -i 's|/bin/sh|/bin/bash|' /etc/passwd
+
+# Add colored output
+echo "PS1='\${debian_chroot:+(\$debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '" >> ~/.bash_profile
 
 # Remove the message of the day
 rm /etc/motd
