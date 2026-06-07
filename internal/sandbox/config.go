@@ -25,6 +25,7 @@ type Config struct {
 	Rootfs string
 	// Maximum number of concurrent VMs (0 means unlimited)
 	MaxConcurrentVMs int
+	AllowInternet    bool
 }
 
 // Validate checks if the confgugration is valid
@@ -37,6 +38,10 @@ func (c *Config) Validate() error {
 	_, ipNet, err := net.ParseCIDR(c.VMCIDR)
 	if err != nil {
 		return fmt.Errorf("invalid VM CIDR: %v", err)
+	}
+
+	if ipNet.IP.To4() == nil {
+		return fmt.Errorf("only IPv4 CIDR is supported")
 	}
 
 	// Check if CIDR is large enough

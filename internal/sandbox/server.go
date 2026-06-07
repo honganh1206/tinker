@@ -81,6 +81,11 @@ func (s *Server) Run(ctx context.Context) error {
 
 	s.logger.Printf("Starting SSH host server on port: %d", s.config.Port)
 
+	// Periodic user stats saving
+	statsCtx, statsCancel := context.WithCancel(ctx)
+	defer statsCancel()
+	go s.periodicStatsSave(statsCtx)
+
 	done := make(chan error, 1)
 	go func() {
 		done <- srv.ListenAndServe()
@@ -276,11 +281,10 @@ func (s *Server) showWelcomeMessage(sess ssh.Session, username string, isNewVM b
 	wish.Println(sess, "")
 
 	// Check if this is the user's first time
-	isFirstTime := s.statManager.IsFirstTime(username)
-	if isFirstTime {
+	userStat, exists := s.statManager.GetUserStat(username)
+	if !exists {
 		wish.Println(sess, fmt.Sprintf("Today is \033[3m%s\033[0m. It's your first time here.", dayOfWeek))
 	} else {
-		userStat, _ := s.statManager.GetUserStat(username)
 		lastLogin := formatRelativeTime(userStat.LastConnected)
 		wish.Println(sess, fmt.Sprintf("Today is \033[3m%s\033[0m. Your last login was \033[3m%s\033[0m.", dayOfWeek, lastLogin))
 	}
@@ -319,7 +323,7 @@ func formatRelativeTime(t time.Time) string {
 	now := time.Now()
 	diff := now.Sub(t)
 
-	if diff < 5 * time.Second {
+	if diff < 5*time.Second {
 		return "just now"
 	} else if diff < time.Minute {
 		seconds := int(diff.Seconds())
@@ -532,6 +536,23 @@ func (s *Server) waitForSSHVM(ctx context.Context, vmAddr string) error {
 				conn.Close()
 				s.logger.Printf("VM SSH service is ready at %s", vmAddr)
 				return nil
+			}
+		}
+	}
+}
+
+// periodicStatsSave saves user stats to disk every 30 seconds
+func (s *Server) periodicStatsSave(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := s.statManager.Save(); err != nil {
+				s.logger.Errorf("Failed to save user stats during periodic save: %v", err)
 			}
 		}
 	}

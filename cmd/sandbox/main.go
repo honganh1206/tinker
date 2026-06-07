@@ -33,6 +33,7 @@ func main() {
 		maxConcurrentVMs = flag.Int("max-concurrent-vms", 16, "Maximum number of concurrent VMs (0 = unlimited)")
 		dataDir          = flag.String("data-dir", "./data", "Directory for VM snapshots and data")
 		rootfs           = flag.String("rootfs", "", "Path to rootfs image (required)")
+		allowInternet    = flag.Bool("allow-internet", false, "Allow VMs to access the internet")
 		version          = flag.Bool("version", false, "Show version information")
 	)
 
@@ -46,10 +47,10 @@ func main() {
 	flag.Parse()
 
 	if *version {
-		fmt.Printf("ssh-hypervisor %s\n", getVersion())
+		fmt.Printf("tinker-sandbox %s\n", getVersion())
 		return
-	}
 
+	}
 	config := &sandbox.Config{
 		Port:             *port,
 		HostKey:          *hostKey,
@@ -59,6 +60,7 @@ func main() {
 		MaxConcurrentVMs: *maxConcurrentVMs,
 		DataDir:          *dataDir,
 		Rootfs:           *rootfs,
+		AllowInternet:    *allowInternet,
 	}
 
 	if err := config.Validate(); err != nil {
@@ -68,6 +70,7 @@ func main() {
 	log.Printf("Starting ssh-hypervisor on port %d", config.Port)
 	log.Printf("VM network: %s", config.VMCIDR)
 	log.Printf("Data directory: %s", config.DataDir)
+	log.Printf("Allow internet: %t", config.AllowInternet)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()

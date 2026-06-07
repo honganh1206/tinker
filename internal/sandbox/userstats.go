@@ -108,18 +108,8 @@ func (sm *StatManager) Record(username string) {
 func (sm *StatManager) GetUserStat(username string) (*UserStat, bool) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-
 	user, exists := sm.users[username]
-	if !exists {
-		return nil, false
-	}
-
-	// Return a copy to avoid external modification
-	return &UserStat{
-		Username:      user.Username,
-		ConnectCount:  user.ConnectCount,
-		LastConnected: user.LastConnected,
-	}, true
+	return user, exists
 }
 
 // GetRecentUsers returns the most recent users (excluding the current user)
@@ -149,11 +139,3 @@ func (sm *StatManager) GetRecentUsers(excludeUser string, limit int) []*UserStat
 	return users
 }
 
-// IsFirstTime returns true if this is the user's first connection
-func (sm *StatManager) IsFirstTime(username string) bool {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-
-	user, exists := sm.users[username]
-	return !exists || user.ConnectCount == 0
-}

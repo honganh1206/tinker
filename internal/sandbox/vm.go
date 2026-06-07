@@ -19,6 +19,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	// BridgeName is the name of the network bridge for VMs
+	BridgeName = "sshvm-br0"
+)
+
 // VM represents a single Firecracker microVM instance
 type VM struct {
 	ID         string
@@ -27,7 +32,9 @@ type VM struct {
 	Netmask    net.IP
 	SocketPath string
 	PIDFile    string
-	machine    *firecracker.Machine
+	// Protect machines after Start()
+	mutex   sync.Mutex
+	machine *firecracker.Machine
 	// Shared configs between VMs
 	config *Config
 	// Data directory for different users
@@ -59,14 +66,12 @@ func NewManager(config *Config, logger logrus.FieldLogger, firecrackerBin []byte
 		return nil, fmt.Errorf("failed to create IP pool: %w", err)
 	}
 
-	bridgeName := "sshvm-br0"
-
 	manager := &Manager{
 		config:     config,
 		vms:        make(map[string]*VM),
 		vmRefs:     make(map[string]int),
 		ipPool:     ipPool,
-		bridgeName: bridgeName,
+		bridgeName: BridgeName,
 		logger:     logger,
 	}
 
@@ -83,6 +88,16 @@ func NewManager(config *Config, logger logrus.FieldLogger, firecrackerBin []byte
 	if _, err := os.Stat(vmlinuxPath); os.IsNotExist(err) {
 		if err := os.WriteFile(vmlinuxPath, vmlinuxBin, 0o644); err != nil {
 			return nil, fmt.Errorf("failed to write vmlinux kernel: %w", err)
+		}
+	}
+
+	// Set up iptables rules for internet access
+	if err := cleanupIptablesRules(); err != nil {
+		return nil, fmt.Errorf("failed to clean up existing iptables rules: %w", err)
+	}
+	if config.AllowInternet {
+		if err := manager.setupIptablesRules(); err != nil {
+			return nil, fmt.Errorf("failed to set up iptables rules: %w", err)
 		}
 	}
 
@@ -318,34 +333,53 @@ func (vm *VM) Start(ctx context.Context, manager *Manager) error {
 		},
 	})
 
-	vm.machine = machine
-
 	if err := machine.Start(ctx); err != nil {
+		machine.StopVMM()
+		// Ensure the process completely exits before removiing files
+		machine.Wait(ctx)
+		os.Remove(vm.SocketPath)
+		os.Remove(vm.PIDFile)
+		os.Remove(filepath.Join(vm.dataDir, "console.in"))
 		return fmt.Errorf("failed to start machine: %w", err)
 	}
 
 	// Write PID file
 	pid, err := machine.PID()
-	if err != nil {
-		machine.Shutdown(ctx)
-		return fmt.Errorf("failed to get PID: %w", err)
+	if err == nil {
+		err = os.WriteFile(vm.PIDFile, fmt.Appendf(nil, "%d", pid), 0o644)
 	}
 
-	if err := os.WriteFile(vm.PIDFile, fmt.Appendf(nil, "%d", pid), 0o644); err != nil {
-		machine.Shutdown(ctx)
+	if err != nil {
+		machine.StopVMM()
+		machine.Wait(ctx)
+		os.Remove(vm.SocketPath)
+		os.Remove(vm.PIDFile)
+		os.Remove(filepath.Join(vm.dataDir, "console.in"))
 		return fmt.Errorf("failed to write PID file: %w", err)
 	}
+
+	// Make sure the manager destroys the VM on early exit
+	// Also run a clean shutdown, but this is no-op in this case?
+	go func() {
+		machine.Wait(context.Background())
+		manager.DestroyVM(vm.ID)
+	}()
+
+	vm.machine = machine
 
 	return nil
 }
 
 // Stop stops the Firecracker process
 func (vm *VM) Stop() error {
+	vm.mutex.Lock()
+	defer vm.mutex.Unlock()
+
 	if vm.machine != nil {
 		ctx := context.Background()
 		err := vm.machine.Shutdown(ctx)
 
-		// HACK: Give it a moment to shut down cleanly
+		// HACK: Give it a moment to shut down cleanly (grace period)
 		time.Sleep(250 * time.Millisecond)
 		vm.machine.StopVMM()
 		vm.machine.Wait(ctx)
@@ -394,7 +428,7 @@ func (m *Manager) ReleaseVM(vmID string) error {
 	refCount := m.vmRefs[vmID]
 	m.logger.Printf("Released VM %s (ref count: %d)", vmID, refCount)
 
-	if refCount <= 0 {
+	if refCount == 0 {
 		m.logger.Printf("Destroying VM %s (no more references)", vmID)
 
 		if err := vm.Stop(); err != nil {
