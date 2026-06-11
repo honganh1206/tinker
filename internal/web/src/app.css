@@ -7,52 +7,52 @@
 }
 
 /* ============================================================
-   Design tokens — three-tier model (Tinker / Modal-aligned)
+   Design tokens — light "recreation" paper system
    1. Primitives  : raw values
    2. Semantic    : role-based aliases
    3. Component   : sizing / motion scales
-   See docs/design-system.md for the full token catalog.
    ============================================================ */
 :root {
   /* ---- Primitives ---- */
-  --green-100: #7fee64;
-  --green-light: #ddffdc;
-  --green-30: rgba(127, 238, 100, 0.30);
+  --blue-600: #2563eb;
+  --blue-500: #3b82f6;
+  --blue-100: #dbeafe;
+  --blue-50: #eff6ff;
 
-  --gray-dark: #2f2f2f;
-  --gray-muted: #a3a3a3;
+  --gray-950: #111827;
+  --gray-800: #1f2937;
+  --gray-700: #374151;
+  --gray-500: #6b7280;
+  --gray-400: #9ca3af;
+  --gray-300: #d1d5db;
+  --gray-200: #e5e7eb;
+  --gray-100: #f3f4f6;
+  --gray-50: #f9fafb;
 
-  --black: #000000;
-  --ground: #181818;
   --white: #ffffff;
 
   /* ---- Semantic ---- */
-  --color-action-primary: var(--green-100);
+  --color-action-primary: var(--blue-600);
+  --color-action-primary-soft: var(--blue-50);
 
-  --color-surface-deep: var(--black);     /* page background */
-  --color-surface-base: var(--ground);    /* cards, dropdowns, detail pane */
-  --color-surface-raised: var(--ground); /* sidebar, code blocks */
+  --color-surface-deep: var(--white);     /* dotted paper page background */
+  --color-surface-base: var(--white);     /* cards, dropdowns, detail pane */
+  --color-surface-raised: var(--gray-50); /* code blocks, inset rows */
 
-  --color-border-subtle: rgba(255, 255, 255, 0.10);
-  --color-border-accent: rgba(221, 255, 220, 0.30); /* light-green tinted */
+  --color-border-subtle: var(--gray-200);
+  --color-border-accent: var(--gray-300);
 
-  /* Text — monochromatic green hierarchy
-     - primary  : white (HEADINGS ONLY)
-     - body     : green-light (DEFAULT, inherited from <body>)
-     - link     : green-light (chrome links, hover → action-primary)
-     - secondary: light-green @ 60% (captions, meta)
-     - tertiary : light-green @ 45% (placeholders, disabled, system)
-     - muted-neutral : gray-muted (editorial escape hatch) */
-  --color-text-primary: var(--white);
-  --color-text-body: var(--green-light);
-  --color-text-link: var(--green-light);
-  --color-text-secondary: rgba(221, 255, 220, 0.60);
-  --color-text-tertiary: rgba(221, 255, 220, 0.45);
-  --color-text-muted-neutral: var(--gray-muted);
+  --color-text-primary: var(--gray-950);
+  --color-text-heading: var(--gray-950);
+  --color-text-body: var(--gray-800);
+  --color-text-link: var(--gray-950);
+  --color-text-secondary: var(--gray-500);
+  --color-text-tertiary: var(--gray-400);
+  --color-text-muted-neutral: var(--gray-500);
 
-  --color-row-hover: rgba(255, 255, 255, 0.06);
-  --color-accent-tint: rgba(127, 238, 100, 0.10);
-  --color-accent-tint-soft: rgba(127, 238, 100, 0.08);
+  --color-row-hover: var(--gray-50);
+  --color-accent-tint: var(--blue-50);
+  --color-accent-tint-soft: rgba(219, 234, 254, 0.55);
 
   /* ---- Component scales ---- */
   --radius-sm: 4px;
@@ -74,9 +74,19 @@
   --motion-duration-fast: 150ms;
   --motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
 
+  --shadow-card: 0 12px 30px rgba(17, 24, 39, 0.06);
+  --shadow-message: 0 8px 20px rgba(17, 24, 39, 0.05);
+  --focus-ring: 0 0 0 3px var(--blue-100);
+
+  --size-sidebar: 304px;
+  --size-avatar-sm: 24px;
+  --size-avatar-sidebar: 32px;
+  --size-avatar-md: 34px;
+  --measure-detail-content: 840px;
+
   /* ---- Typography ---- */
-  --font-family-display: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-family-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-family-display: Georgia, 'Times New Roman', serif;
+  --font-family-ui: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-family-code: 'Fira Mono', ui-monospace, 'SF Mono', Consolas, monospace;
 }
 
@@ -90,6 +100,28 @@ body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   letter-spacing: -0.01em;
+}
+
+.pattern {
+  background-color: #ffffff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' viewBox='0 0 4 4'%3E%3Cpath fill='%23ececec' fill-opacity='0.95' d='M1 3h1v1H1V3zm2-2h1v1H3V1z'/%3E%3C/svg%3E");
+}
+
+.interact-bounce {
+  transition:
+    transform var(--motion-duration-fast) var(--motion-ease),
+    box-shadow var(--motion-duration-fast) var(--motion-ease),
+    border-color var(--motion-duration-fast) var(--motion-ease),
+    background var(--motion-duration-fast) var(--motion-ease),
+    color var(--motion-duration-fast) var(--motion-ease);
+}
+
+.interact-bounce:hover {
+  transform: scale(1.04);
+}
+
+.interact-bounce:active {
+  transform: scale(0.96);
 }
 
 /* Default link rule — chrome links inherit body color, hover → action.
@@ -107,7 +139,7 @@ a:hover {
 /* Globalized focus ring */
 :focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--green-30);
+  box-shadow: var(--focus-ring);
   border-radius: var(--radius-md);
 }
 
@@ -125,23 +157,38 @@ a:hover {
 }
 
 /* ============================================================
-   Shell — full-bleed two-column layout, all-dark.
-   These classes appear in App.svelte and are referenced by
-   children, so they live globally.
+   Shell — two-column app layout.
    ============================================================ */
+.app-root {
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
 .app-shell {
   display: flex;
   flex: 1;
   overflow: hidden;
-  background: var(--color-surface-deep);
+  gap: 0;
+  padding: 0;
+  background: transparent;
   min-height: 0;
 }
 
 .sidebar-pane {
-  width: 280px;
+  width: var(--size-sidebar);
   flex-shrink: 0;
-  background: var(--color-surface-raised);
-  border-right: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-base);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 0;
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -150,9 +197,15 @@ a:hover {
 .detail-pane {
   flex: 1;
   background: var(--color-surface-base);
+  border: 1px solid var(--color-border-subtle);
+  border-left: 0;
+  border-radius: 0;
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
+  min-width: 0;
 }
 
 /* ============================================================
@@ -163,22 +216,24 @@ a:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid transparent;
+  width: 32px;
+  height: 32px;
+  border: 0;
   background: transparent;
   color: var(--color-text-secondary);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition:
-    background var(--motion-duration-fast) var(--motion-ease),
-    color var(--motion-duration-fast) var(--motion-ease),
-    border-color var(--motion-duration-fast) var(--motion-ease);
+    transform var(--motion-duration-fast) var(--motion-ease),
+    color var(--motion-duration-fast) var(--motion-ease);
 
   &:hover:not(:disabled) {
-    background: var(--color-accent-tint);
+    transform: scale(1.08);
     color: var(--color-action-primary);
-    border-color: var(--color-border-subtle);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.94);
   }
 
   &:disabled {
@@ -213,7 +268,7 @@ a:hover {
 
 .md li { margin: 2px 0; }
 
-/* Inline prose links — green-100 by default, underline on hover. */
+/* Inline prose links — blue accent by default, underline on hover. */
 .md a {
   color: var(--color-action-primary);
   text-decoration: none;
@@ -263,7 +318,7 @@ a:hover {
   margin: var(--space-3) 0 6px;
   line-height: 1.2;
   letter-spacing: -0.01em;
-  color: var(--color-text-primary); /* heading-tier — explicit white over body */
+  color: var(--color-text-primary);
 }
 
 .md h1 { font-size: 1.25rem; }
@@ -272,7 +327,7 @@ a:hover {
 
 /* Diff-line hooks (future Shiki integration) */
 .md .diff-add {
-  background: rgba(127, 238, 100, 0.12);
+  background: rgba(16, 185, 129, 0.10);
   border-left: 2px solid var(--color-action-primary);
   padding-left: 6px;
 }
@@ -295,11 +350,11 @@ a:hover {
     width: 100%;
     height: auto;
     max-height: 40vh;
-    border-right: none;
-    border-bottom: 1px solid var(--color-border-subtle);
   }
 
   .detail-pane {
     width: 100%;
+    border-left: 1px solid var(--color-border-subtle);
+    border-top: 0;
   }
 }

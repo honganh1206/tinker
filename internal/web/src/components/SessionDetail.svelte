@@ -55,7 +55,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--space-3) var(--space-5);
+    padding: var(--space-4) var(--space-5);
     border-bottom: 1px solid var(--color-border-subtle);
     background: var(--color-surface-base);
     flex-shrink: 0;
@@ -63,13 +63,17 @@
 
   .detail-title {
     font-family: var(--font-family-code);
-    font-size: 0.92rem;
+    font-size: 0.82rem;
     font-weight: 500;
-    /* inherits --color-text-body — session IDs sit at chrome tier, not heading */
+    color: var(--color-text-secondary);
     letter-spacing: 0;
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .detail-actions {
@@ -78,15 +82,15 @@
     gap: var(--space-1);
   }
 
-  /* Marketing-container: caps thread reading width, à la Modal blog layout */
   .session-detail {
     flex: 1;
     overflow-y: auto;
-    padding: var(--space-6) var(--space-5);
+    padding: var(--space-8) var(--space-5);
+    background: var(--color-surface-base);
   }
 
   .session-detail-inner {
-    max-width: 800px;
+    max-width: var(--measure-detail-content);
     margin: 0 auto;
     width: 100%;
   }

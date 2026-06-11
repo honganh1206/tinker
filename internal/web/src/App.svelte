@@ -27,22 +27,28 @@
 {:else if !$auth.authDisabled && !$auth.user}
   <Login />
 {:else}
-  <div class="min-h-screen flex flex-col">
-    <main class="flex-1 min-h-0 flex">
+  <div class="app-root pattern">
+    <main class="app-main">
       <div class="app-shell">
         <aside class="sidebar-pane">
           <SessionList />
         </aside>
 
-        <section class="detail-pane">
-          {#if $selectedSession}
+        {#if $selectedSession}
+          <section class="detail-pane">
             <SessionDetail />
-          {:else}
-            <div class="empty-state">
-              <div class="empty-card">Ask or build anything</div>
+          </section>
+        {:else}
+          <div class="empty-state">
+            <div class="empty-card">
+              <h1>Ask or build anything</h1>
+              <p>
+                Select a session from the paper stack, or start a new run from
+                the CLI.
+              </p>
             </div>
-          {/if}
-        </section>
+          </div>
+        {/if}
       </div>
     </main>
 
@@ -79,24 +85,31 @@
   .empty-card {
     width: min(520px, 90%);
     background: var(--color-surface-base);
-    border: 1px solid var(--color-border-accent);
+    border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-xl);
-    padding: var(--space-6);
+    padding: var(--space-8);
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: var(--space-3);
-    font-family: var(--font-family-display);
-    font-size: 0.92rem;
+    text-align: center;
+    gap: var(--space-2);
+    box-shadow: var(--shadow-card);
+  }
 
-    &::before {
-      content: "";
-      width: 8px;
-      height: 8px;
-      border-radius: var(--radius-full);
-      background: var(--color-action-primary);
-      box-shadow: 0 0 0 3px var(--green-30);
-      flex-shrink: 0;
-    }
+  .empty-card h1 {
+    margin: 0;
+    font-family: var(--font-family-display);
+    font-size: clamp(2rem, 6vw, 3.2rem);
+    font-weight: 500;
+    line-height: 0.95;
+    color: var(--color-text-heading);
+  }
+
+  .empty-card p {
+    margin: var(--space-2) 0 0;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    max-width: 32rem;
   }
 
   .user-chip {
@@ -107,17 +120,17 @@
     align-items: center;
     gap: var(--space-2);
     background: var(--color-surface-base);
-    border: 1px solid var(--color-border-accent);
+    border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-full);
     padding: var(--space-1) var(--space-3);
-    font-family: var(--font-family-display);
+    font-family: var(--font-family-ui);
     font-size: 0.78rem;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   }
 
   .user-chip img {
-    width: 24px;
-    height: 24px;
+    width: var(--size-avatar-sm);
+    height: var(--size-avatar-sm);
     border-radius: 50%;
   }
 
@@ -125,7 +138,7 @@
     background: none;
     border: none;
     cursor: pointer;
-    color: var(--color-text-body);
+    color: var(--color-text-secondary);
     text-decoration: underline;
     font-size: 0.78rem;
   }

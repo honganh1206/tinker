@@ -64,11 +64,11 @@
         <path d="M21 3v5h-5" />
       </svg>
     </button>
-    <span class="avatar" aria-hidden="true">YO</span>
+    <span class="session-avatar" aria-hidden="true">YO</span>
   </div>
 </header>
 
-<div class="search">
+<div class="session-search">
   <svg
     viewBox="0 0 24 24"
     fill="none"
@@ -92,11 +92,12 @@
     {#each filtered as s (s.id)}
       <button
         type="button"
-        class="row {$selectedId === s.id ? 'active' : ''}"
+        class="session-row"
+        aria-current={$selectedId === s.id ? "page" : undefined}
         onclick={() => selectSession(s.id)}
       >
-        <div class="row-title">{s.id}</div>
-        <div class="row-meta">
+        <div class="session-row-title">{s.id}</div>
+        <div class="session-row-meta">
           {formatRelative(s.start_time)}
           {#if s.context_count}
             · {s.context_count} context{s.context_count === 1 ? "" : "s"}
@@ -112,21 +113,20 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--space-4) var(--space-4) var(--space-2);
+    padding: var(--space-4) var(--space-4) var(--space-3);
     flex-shrink: 0;
   }
 
-  /* Brand mark + wordmark — sleek, no pill chrome.
-     Icon does the work; text inherits body color (light-green). */
   .brand {
     display: inline-flex;
     align-items: center;
     gap: 10px;
     font-family: var(--font-family-display);
-    font-size: 0.98rem;
-    font-weight: 600;
+    font-size: 1.18rem;
+    font-weight: 500;
     letter-spacing: -0.015em;
     line-height: 1;
+    color: var(--color-text-heading);
   }
 
   .brand-mark {
@@ -142,37 +142,33 @@
     gap: var(--space-2);
   }
 
-  .avatar {
-    width: 28px;
-    height: 28px;
+  .session-avatar {
+    width: var(--size-avatar-sidebar);
+    height: var(--size-avatar-sidebar);
     border-radius: var(--radius-full);
-    background: var(--color-surface-base);
+    background: linear-gradient(to top, var(--blue-600), var(--blue-500));
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: var(--color-text-primary);
+    color: var(--white);
     font-size: 0.72rem;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.02em;
-    border: 1px solid var(--color-border-subtle);
+    border: 1px solid var(--blue-600);
   }
 
-  .search {
-    margin: var(--space-1) var(--space-3) var(--space-3);
+  .session-search {
+    margin: var(--space-3) var(--space-4) var(--space-2);
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    padding: 8px var(--space-3);
-    border-radius: var(--radius-lg);
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid transparent;
-    transition:
-      border-color var(--motion-duration-fast) var(--motion-ease),
-      background var(--motion-duration-fast) var(--motion-ease);
+    padding: 4px 0;
+    background: transparent;
+    color: var(--color-text-tertiary);
+    transition: color var(--motion-duration-fast) var(--motion-ease);
 
     &:focus-within {
-      background: rgba(255, 255, 255, 0.10);
-      border-color: var(--color-border-subtle);
+      color: var(--color-text-secondary);
     }
 
     & input {
@@ -182,7 +178,7 @@
       background: transparent;
       font-family: var(--font-family-ui);
       font-size: 0.82rem;
-      /* inherits --color-text-body */
+      color: var(--color-text-body);
 
       &::placeholder {
         color: var(--color-text-tertiary);
@@ -192,72 +188,56 @@
     & svg {
       width: 14px;
       height: 14px;
-      color: var(--color-text-tertiary);
+      color: currentColor;
     }
-  }
-
-  /* Forward-looking: section labels for future MCP / Settings sections */
-  :global(.section-label) {
-    font-size: 0.66rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--color-text-tertiary);
-    padding: var(--space-4) var(--space-4) var(--space-1);
   }
 
   .session-list {
     flex: 1;
     overflow-y: auto;
-    padding: var(--space-1) 0;
+    padding: var(--space-1) var(--space-2) var(--space-3);
   }
 
-  .row {
+  .session-row {
     cursor: pointer;
     position: relative;
-    margin: 1px var(--space-2);
-    padding: 8px var(--space-3) 8px 14px;
-    border-radius: var(--radius-md);
-    transition: background var(--motion-duration-fast) var(--motion-ease);
+    margin: var(--space-1) 0;
+    padding: 10px var(--space-3);
+    border-radius: var(--radius-lg);
+    transition:
+      background var(--motion-duration-fast) var(--motion-ease),
+      border-color var(--motion-duration-fast) var(--motion-ease),
+      transform var(--motion-duration-fast) var(--motion-ease);
     display: block;
-    border: none;
+    border: 1px solid transparent;
     background: transparent;
     text-align: left;
-    width: calc(100% - var(--space-4));
-    /* inherits --color-text-body */
+    width: 100%;
+    color: var(--color-text-body);
 
     &:hover {
       background: var(--color-row-hover);
+      border-color: var(--color-border-subtle);
+      transform: translateY(-1px);
     }
 
-    /* Active row: 2 px lime left bar instead of fully painting the row */
-    &.active {
-      background: var(--color-row-hover);
-
-      &::before {
-        content: "";
-        position: absolute;
-        left: 4px;
-        top: 8px;
-        bottom: 8px;
-        width: 2px;
-        background: var(--color-action-primary);
-        border-radius: var(--radius-sm);
-      }
+    &[aria-current="page"] {
+      background: var(--color-action-primary-soft);
+      border-color: var(--blue-100);
+      box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.06);
     }
   }
 
-  .row-title {
+  .session-row-title {
     font-size: 0.84rem;
-    font-weight: 500;
-    /* distinction from row-meta is weight, not hue */
+    font-weight: 600;
     line-height: 1.3;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .row-meta {
+  .session-row-meta {
     font-size: 0.72rem;
     color: var(--color-text-secondary);
     margin-top: 2px;
@@ -271,5 +251,8 @@
     color: var(--color-text-secondary);
     font-size: 0.78rem;
     padding: var(--space-8) var(--space-4);
+    border: 1px dashed var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    margin: var(--space-2) 0;
   }
 </style>

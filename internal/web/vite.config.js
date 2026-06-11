@@ -7,6 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': 'http://localhost:11435',
+      '/auth': 'http://localhost:11435',
       '/healthz': 'http://localhost:11435',
     }
   }
