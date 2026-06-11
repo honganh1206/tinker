@@ -3,7 +3,7 @@
 # Tinker
 
 <p align="center">
-  <img src="internal/web/public/new-icon.png" alt="Tinker app icon" width="120" height="120" />
+  <img src="icon.png" alt="Tinker app icon" width="120" height="120" />
 </p>
 
 A background coding agent. Give it a prompt, walk away, get results.
